@@ -16,3 +16,6 @@ backend/data/
 .vscode/
 *.iml
 .DS_Store
+
+# Sauvegardes locales (données personnelles)
+backups/

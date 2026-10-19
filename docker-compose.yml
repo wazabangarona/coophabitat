@@ -1,0 +1,86 @@
+# CoopHabitat — déploiement par Docker Compose.
+# Configuration de base, prudente : environnement PRODUCTION, simulateur de paiement et données de
+# démonstration désactivés. Pour une démonstration locale : voir docker-compose.demo.yml.
+# Toutes les valeurs sensibles viennent du fichier .env (modèle : .env.example), jamais du dépôt.
+# Sans mot de passe de base, PostgreSQL refuse de s'initialiser ; sans secret JWT d'au moins 32 caractères,
+# le serveur refuse de démarrer (ProductionSafetyCheck).
+
+name: coophabitat
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${COOPHABITAT_DB_NAME:-coophabitat}
+      POSTGRES_USER: ${COOPHABITAT_DB_USER:-coophabitat}
+      POSTGRES_PASSWORD: ${COOPHABITAT_DB_PASSWORD:-}
+      TZ: Africa/Dakar
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [interne]
+
+  backend:
+    build:
+      context: ./backend
+    image: coophabitat-backend:${COOPHABITAT_VERSION:-local}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      COOPHABITAT_ENVIRONMENT: ${COOPHABITAT_ENVIRONMENT:-PRODUCTION}
+      COOPHABITAT_DB_URL: jdbc:postgresql://db:5432/${COOPHABITAT_DB_NAME:-coophabitat}
+      COOPHABITAT_DB_USER: ${COOPHABITAT_DB_USER:-coophabitat}
+      COOPHABITAT_DB_PASSWORD: ${COOPHABITAT_DB_PASSWORD}
+      COOPHABITAT_JWT_SECRET: ${COOPHABITAT_JWT_SECRET:-}
+      COOPHABITAT_COOKIE_SECURE: ${COOPHABITAT_COOKIE_SECURE:-true}
+      COOPHABITAT_FRONTEND_URL: ${COOPHABITAT_PUBLIC_URL:-http://localhost:8080}
+      COOPHABITAT_CORS_ORIGINS: ${COOPHABITAT_PUBLIC_URL:-http://localhost:8080}
+      COOPHABITAT_FORWARD_HEADERS: native
+      COOPHABITAT_BOOTSTRAP_ADMIN_EMAIL: ${COOPHABITAT_BOOTSTRAP_ADMIN_EMAIL:-}
+      COOPHABITAT_SWAGGER_ENABLED: ${COOPHABITAT_SWAGGER_ENABLED:-false}
+      COOPHABITAT_PAYMENT_MOCK_ENABLED: ${COOPHABITAT_PAYMENT_MOCK_ENABLED:-false}
+      COOPHABITAT_PAYMENT_MOCK_SECRET: ${COOPHABITAT_PAYMENT_MOCK_SECRET:-}
+      COOPHABITAT_WAVE_ENABLED: ${COOPHABITAT_WAVE_ENABLED:-false}
+      COOPHABITAT_WAVE_API_KEY: ${COOPHABITAT_WAVE_API_KEY:-}
+      COOPHABITAT_WAVE_WEBHOOK_SECRET: ${COOPHABITAT_WAVE_WEBHOOK_SECRET:-}
+      COOPHABITAT_WAVE_SUCCESS_URL: ${COOPHABITAT_WAVE_SUCCESS_URL:-}
+      COOPHABITAT_WAVE_ERROR_URL: ${COOPHABITAT_WAVE_ERROR_URL:-}
+      COOPHABITAT_MAIL_ENABLED: ${COOPHABITAT_MAIL_ENABLED:-false}
+      COOPHABITAT_MAIL_FROM: ${COOPHABITAT_MAIL_FROM:-}
+      COOPHABITAT_SMTP_HOST: ${COOPHABITAT_SMTP_HOST:-}
+      COOPHABITAT_SMTP_PORT: ${COOPHABITAT_SMTP_PORT:-587}
+      COOPHABITAT_SMTP_USER: ${COOPHABITAT_SMTP_USER:-}
+      COOPHABITAT_SMTP_PASSWORD: ${COOPHABITAT_SMTP_PASSWORD:-}
+      COOPHABITAT_DEMO_ENABLED: ${COOPHABITAT_DEMO_ENABLED:-false}
+      COOPHABITAT_DEMO_PASSWORD: ${COOPHABITAT_DEMO_PASSWORD:-}
+    volumes:
+      - documents:/data/documents
+    networks: [interne]
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: coophabitat-web:${COOPHABITAT_VERSION:-local}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Exposé sur l'hôte uniquement : le TLS est assuré par le reverse proxy HTTPS placé devant.
+      - "${COOPHABITAT_HTTP_BIND:-127.0.0.1}:${COOPHABITAT_HTTP_PORT:-8080}:8080"
+    networks: [interne]
+
+volumes:
+  db-data:
+  documents:
+
+networks:
+  interne:

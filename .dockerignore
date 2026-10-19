@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.angular
+**/target
+**/coverage
+**/test-results
+**/playwright-report
+.git
+.env
+backups/
+data/

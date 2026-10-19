@@ -1,0 +1,22 @@
+# Surcharge de DÉMONSTRATION LOCALE — ne jamais utiliser en production.
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# Active les identités fictives et le simulateur de paiement (« SIMULATION — AUCUN ARGENT RÉEL TRANSFÉRÉ »).
+# Le serveur refuse de démarrer si ces options sont combinées avec COOPHABITAT_ENVIRONMENT=PRODUCTION.
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${COOPHABITAT_DB_PASSWORD:-demo-db-password}
+  backend:
+    environment:
+      COOPHABITAT_ENVIRONMENT: DEMONSTRATION
+      COOPHABITAT_DB_PASSWORD: ${COOPHABITAT_DB_PASSWORD:-demo-db-password}
+      COOPHABITAT_JWT_SECRET: ${COOPHABITAT_JWT_SECRET:-demonstration-locale-uniquement-0123456789abcdef}
+      # Démonstration servie en HTTP sur localhost : le cookie de session ne peut pas être « Secure ».
+      COOPHABITAT_COOKIE_SECURE: "false"
+      COOPHABITAT_FRONTEND_URL: http://localhost:${COOPHABITAT_HTTP_PORT:-8080}
+      COOPHABITAT_CORS_ORIGINS: http://localhost:${COOPHABITAT_HTTP_PORT:-8080}
+      COOPHABITAT_PAYMENT_MOCK_ENABLED: "true"
+      COOPHABITAT_PAYMENT_MOCK_SECRET: ${COOPHABITAT_PAYMENT_MOCK_SECRET:-simulation-locale}
+      COOPHABITAT_DEMO_ENABLED: "true"
+      COOPHABITAT_DEMO_PASSWORD: ${COOPHABITAT_DEMO_PASSWORD:?définir COOPHABITAT_DEMO_PASSWORD (mot de passe des comptes fictifs)}

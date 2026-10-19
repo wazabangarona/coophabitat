@@ -10,6 +10,22 @@ async function login(page: Page, email: string): Promise<void> {
   await expect(page).not.toHaveURL(/connexion/);
 }
 
+// Toute violation de la politique de sécurité du contenu ou erreur JavaScript non interceptée fait échouer le test.
+const pageProblems = new WeakMap<Page, string[]>();
+test.beforeEach(({ page }) => {
+  const problems: string[] = [];
+  pageProblems.set(page, problems);
+  page.on('pageerror', (e) => problems.push(`Erreur JavaScript : ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error' && /Content Security Policy|Refused to/i.test(m.text())) {
+      problems.push(`CSP : ${m.text()}`);
+    }
+  });
+});
+test.afterEach(({ page }) => {
+  expect(pageProblems.get(page) ?? []).toEqual([]);
+});
+
 async function noHorizontalScroll(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
