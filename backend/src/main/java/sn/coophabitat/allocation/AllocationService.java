@@ -839,12 +839,17 @@ public class AllocationService {
                             return new PublishedResult(rr.memberNumber(), rr.lotReference(), rr.drawRank(), rr.status());
                         }).toList();
             }
+            // Liste figée publiée aux membres (numéros d'adhérent seulement) : elle permet de recalculer soi-même
+            // les empreintes et le tirage, sans passer par le serveur.
+            boolean listPublished = c.getParticipantsDigest() != null;
+            List<String> participantNumbers = listPublished ? memberNumbers(eligibleCandidates(c.getId())) : List.of();
+            List<String> lotRefs = listPublished ? lotReferences(lots.findAllById(c.getLotIds())) : List.of();
             views.add(new MemberCampaignView(c.getId(), c.getReference(), c.getTitle(), c.getMethod(), c.getStatus(),
                     c.getEligibilityText(), c.getRulesText(), c.getReferenceDate(), c.getApplicationClosesAt(),
                     c.getSeedCommitment(), c.getParticipantsDigest(), c.getLotsDigest(), c.getAlgorithmVersion(),
                     resultsPublic && c.isSeedRevealed() ? c.getSeedSecret() : null,
                     resultsPublic ? c.getPublicEntropy() : null, mine != null && mine.getWithdrawnAt() == null,
-                    mine == null ? null : candidateResponse(mine), myResult, published));
+                    mine == null ? null : candidateResponse(mine), myResult, published, participantNumbers, lotRefs));
         }
         return views;
     }

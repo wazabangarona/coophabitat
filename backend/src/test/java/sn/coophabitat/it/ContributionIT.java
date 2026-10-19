@@ -108,11 +108,34 @@ class ContributionIT extends IntegrationTest {
         reminders.run(today);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM notification WHERE dedup_key LIKE ?", Long.class,
                 "RAPPEL_J3:" + o.getId() + "%")).isEqualTo(1);
-        // La veille du J-3 ou le lendemain, aucun rappel pour cette échéance.
+        // À J-4 (trop tôt) ou à J-2 (déjà rappelée), aucun nouveau rappel pour cette échéance.
         reminders.run(today.minusDays(1));
         reminders.run(today.plusDays(1));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM notification WHERE dedup_key LIKE ?", Long.class,
                 "RAPPEL_J3:" + o.getId() + "%")).isEqualTo(1);
+    }
+
+    @Test
+    void aMissedReminderRunIsCaughtUpBeforeTheDueDate() {
+        LocalDate today = LocalDate.now();
+        LocalDate due = today.plusDays(2);
+        var plan = fx.activePlan(BigDecimal.valueOf(5_000), due.withDayOfMonth(1), 0, PenaltyMethod.AUCUNE, BigDecimal.ZERO);
+        Member m = fx.activeMember(plan.getId(), due.withDayOfMonth(1).minusMonths(1));
+        fx.memberAccount(m);
+        jdbc.update("UPDATE contribution_plan SET due_day_of_month = ? WHERE id = ?", due.getDayOfMonth(), plan.getId());
+        obligations.generateForMember(m.getId(), today);
+        MemberObligation o = repository.findByMemberIdOrderByDueDateAscIdAsc(m.getId()).stream()
+                .filter(x -> x.getDueDate().equals(due)).findFirst().orElseThrow();
+        // L'exécution de J-3 n'a pas eu lieu : celle de J-2 envoie le rappel, une seule fois.
+        reminders.run(today);
+        reminders.run(today.plusDays(1));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM notification WHERE dedup_key LIKE ?", Long.class,
+                "RAPPEL_J3:" + o.getId() + "%")).isEqualTo(1);
+        // Le jour de l'échéance, il n'y a plus de rappel « avant échéance ».
+        jdbc.update("DELETE FROM notification WHERE dedup_key LIKE ?", "RAPPEL_J3:" + o.getId() + "%");
+        reminders.run(due);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM notification WHERE dedup_key LIKE ?", Long.class,
+                "RAPPEL_J3:" + o.getId() + "%")).isZero();
     }
 
     @Test

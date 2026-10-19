@@ -101,7 +101,8 @@ public final class AllocationDtos {
                                      String participantsDigest, String lotsDigest, String algorithmVersion,
                                      String revealedSeed, String publicEntropy, boolean applied,
                                      CandidateResponse myCandidacy, ResultResponse myResult,
-                                     List<PublishedResult> publishedResults) {
+                                     List<PublishedResult> publishedResults, List<String> participantNumbers,
+                                     List<String> lotReferences) {
     }
 
     public record PublishedResult(String memberNumber, String lotReference, Integer drawRank, AllocationResult.Status status) {

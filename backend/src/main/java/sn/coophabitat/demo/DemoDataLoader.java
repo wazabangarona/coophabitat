@@ -15,6 +15,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import sn.coophabitat.admin.CoopSettings;
 import sn.coophabitat.admin.CoopSettingsRepository;
 import sn.coophabitat.allocation.AllocationCampaign;
+import sn.coophabitat.allocation.AllocationApproval;
+import sn.coophabitat.allocation.AllocationDtos.ApprovalRequest;
 import sn.coophabitat.allocation.AllocationDtos.CampaignRequest;
 import sn.coophabitat.allocation.AllocationMethod;
 import sn.coophabitat.allocation.AllocationService;
@@ -29,9 +31,14 @@ import sn.coophabitat.document.*;
 import sn.coophabitat.finance.ExpenseCategory;
 import sn.coophabitat.finance.ExpenseService;
 import sn.coophabitat.finance.FinanceDtos.ExpenseRequest;
+import sn.coophabitat.finance.FinanceDtos.ReportRequest;
+import sn.coophabitat.finance.FinancialReport;
+import sn.coophabitat.finance.FinancialReportService;
 import sn.coophabitat.member.*;
 import sn.coophabitat.member.MemberDtos.CreateMemberRequest;
+import sn.coophabitat.payment.PaymentDtos.CreateIntentRequest;
 import sn.coophabitat.payment.PaymentDtos.ManualPaymentRequest;
+import sn.coophabitat.payment.ProviderCode;
 import sn.coophabitat.payment.PaymentIntent;
 import sn.coophabitat.payment.PaymentService;
 import sn.coophabitat.property.*;
@@ -78,6 +85,7 @@ public class DemoDataLoader implements ApplicationRunner {
     private final AssemblyService assemblies;
     private final ExpenseService expenses;
     private final DocumentService documents;
+    private final FinancialReportService reports;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final Clock clock;
@@ -87,7 +95,7 @@ public class DemoDataLoader implements ApplicationRunner {
                           PlanService plans, ObligationService obligations, MemberObligationRepository obligationRepository,
                           PaymentService payments, PropertyService property, AllocationService allocations,
                           AssemblyService assemblies, ExpenseService expenses, DocumentService documents,
-                          JdbcTemplate jdbc, PlatformTransactionManager txManager, Clock clock) {
+                          FinancialReportService reports, JdbcTemplate jdbc, PlatformTransactionManager txManager, Clock clock) {
         this.props = props;
         this.users = users;
         this.encoder = encoder;
@@ -104,6 +112,7 @@ public class DemoDataLoader implements ApplicationRunner {
         this.assemblies = assemblies;
         this.expenses = expenses;
         this.documents = documents;
+        this.reports = reports;
         this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(txManager);
         this.clock = clock;
@@ -170,6 +179,7 @@ public class DemoDataLoader implements ApplicationRunner {
                 new Person("Ndeye", "Démo", MemberType.FONDATEUR, 7),
                 new Person("Alioune", "Exemple", MemberType.ORDINAIRE, 4));
         List<Member> created = new ArrayList<>();
+        List<CurrentUser> memberUsers = new ArrayList<>();
         int i = 1;
         for (Person p : people) {
             String email = "membre" + i + "@" + DEMO_DOMAIN;
@@ -191,7 +201,7 @@ public class DemoDataLoader implements ApplicationRunner {
             u.setPasswordChangedAt(Instant.now(clock));
             u.setEmailVerified(true);
             u.setDemo(true);
-            users.save(u);
+            memberUsers.add(auth.toCurrentUser(users.save(u)));
             created.add(m);
             i++;
         }
@@ -230,6 +240,7 @@ public class DemoDataLoader implements ApplicationRunner {
                 "Département fictif", "Commune fictive", PropertyProject.Status.EN_COURS));
         jdbc.update("UPDATE property_project SET is_demo = TRUE WHERE id = ?", project.getId());
         List<Long> lotIds = new ArrayList<>();
+        List<Long> pastLotIds = new ArrayList<>();
         for (int n = 1; n <= 6; n++) {
             PropertyLot lot = property.createLot(new LotRequest("DEMO-LOT-" + String.format("%02d", n), project.getId(),
                     n <= 4 ? LotType.TERRAIN : LotType.VILLA, "Région fictive", "Département fictif", "Commune fictive",
@@ -240,8 +251,47 @@ public class DemoDataLoader implements ApplicationRunner {
             jdbc.update("UPDATE property_lot SET is_demo = TRUE WHERE id = ?", lot.getId());
             if (n <= 3) {
                 lotIds.add(lot.getId());
+            } else if (n <= 5) {
+                pastLotIds.add(lot.getId());
             }
         }
+
+        // Procédure déjà menée à son terme : tirage exécuté, PV validé par deux responsables, résultats publiés.
+        // Les membres peuvent la recalculer eux-mêmes (graine révélée, entropie publique, empreintes).
+        AllocationCampaign past = allocations.create(new CampaignRequest("Attribution de démonstration — tranche 0",
+                "Procédure fictive terminée, pour montrer un tirage vérifiable et des lots attribués.",
+                AllocationMethod.TIRAGE_AU_SORT,
+                "Membre actif depuis au moins 6 mois, arriérés inférieurs ou égaux à 50 000 FCFA à la date de référence.",
+                "Tirage au sort entre les candidats éligibles ; un lot par bénéficiaire ; liste d'attente pour les autres.",
+                6, false, BigDecimal.valueOf(50_000), List.of("FONDATEUR", "ORDINAIRE", "BENEFICIAIRE"), today,
+                Instant.now(clock).plus(1, ChronoUnit.DAYS), 2, Instant.now(clock), "Salle fictive"), secretary);
+        allocations.setLots(past.getId(), pastLotIds);
+        allocations.publishCriteria(past.getId());
+        allocations.openApplications(past.getId());
+        for (Member m : created.subList(0, 7)) {
+            allocations.apply(past.getId(), m.getId());
+        }
+        allocations.closeApplications(past.getId());
+        allocations.checkEligibility(past.getId());
+        allocations.publishList(past.getId());
+        act(president);
+        allocations.approve(past.getId(), new ApprovalRequest(AllocationApproval.Step.VALIDATION_LISTE,
+                AllocationApproval.Decision.APPROUVE, "Liste vérifiée (démonstration)", null), president);
+        act(secretary);
+        allocations.approve(past.getId(), new ApprovalRequest(AllocationApproval.Step.VALIDATION_LISTE,
+                AllocationApproval.Decision.APPROUVE, "Liste vérifiée (démonstration)", null), secretary);
+        act(president);
+        allocations.executeDraw(past.getId(), "Numéros fictifs tirés en séance : 07 19 23 42", president);
+        allocations.approve(past.getId(), new ApprovalRequest(AllocationApproval.Step.VALIDATION_PV,
+                AllocationApproval.Decision.APPROUVE, "PV conforme (démonstration)", null), president);
+        act(secretary);
+        allocations.approve(past.getId(), new ApprovalRequest(AllocationApproval.Step.VALIDATION_PV,
+                AllocationApproval.Decision.APPROUVE, "PV conforme (démonstration)", null), secretary);
+        allocations.publishResults(past.getId());
+        jdbc.update("UPDATE allocation_campaign SET is_demo = TRUE WHERE id = ?", past.getId());
+        Set<Long> winners = new HashSet<>(jdbc.queryForList(
+                "SELECT c.member_id FROM allocation_result r JOIN allocation_candidate c ON c.id = r.candidate_id "
+                        + "WHERE r.campaign_id = ? AND r.lot_id IS NOT NULL", Long.class, past.getId()));
 
         AllocationCampaign campaign = allocations.create(new CampaignRequest("Attribution de démonstration — tranche 1",
                 "Procédure fictive pour présenter le tirage au sort vérifiable.", AllocationMethod.TIRAGE_AU_SORT,
@@ -254,8 +304,17 @@ public class DemoDataLoader implements ApplicationRunner {
         allocations.publishCriteria(campaign.getId());
         allocations.openApplications(campaign.getId());
         jdbc.update("UPDATE allocation_campaign SET is_demo = TRUE WHERE id = ?", campaign.getId());
-        for (Member m : created.subList(0, 5)) {
-            allocations.apply(campaign.getId(), m.getId());
+        created.stream().filter(m -> m.getStatus() == MemberStatus.ACTIF)
+                .filter(m -> !winners.contains(m.getId())).limit(5)
+                .forEach(m -> allocations.apply(campaign.getId(), m.getId()));
+
+        // Paiements SIMULÉS (fournisseur fictif) : l'un confirmé, l'autre laissé en attente. Ils sont comptabilisés
+        // sur le compte 559900 « SIMULATION », jamais en trésorerie réelle. Ignorés si le simulateur est désactivé.
+        if (props.payment().mockEnabled()) {
+            simulatedPayment(created.get(3), memberUsers.get(3), true);
+            simulatedPayment(created.get(5), memberUsers.get(5), false);
+        } else {
+            log.info("Simulateur de paiement désactivé : aucun paiement simulé de démonstration");
         }
 
         GeneralAssembly ag = assemblies.create(new AssemblyRequest("Assemblée générale ordinaire (démonstration)",
@@ -280,8 +339,28 @@ public class DemoDataLoader implements ApplicationRunner {
                 "Fournisseur fictif", BigDecimal.valueOf(45_000), today.minusDays(2), justif.getId()), treasurer);
         expenses.submit(expense.getId(), treasurer);
         jdbc.update("UPDATE expense SET is_demo = TRUE WHERE id = ?", expense.getId());
+
+        // Rapport financier de démonstration : généré par le trésorier, publié aux membres par la présidente.
+        var report = reports.generate(new ReportRequest(FinancialReport.Type.PERIODE, today.minusMonths(5).withDayOfMonth(1),
+                today), treasurer);
+        act(president);
+        reports.publish(report.getId(), president);
         jdbc.update("UPDATE document SET is_demo = TRUE");
         jdbc.update("UPDATE user_account SET is_demo = TRUE WHERE lower(email) LIKE ?", "%@" + DEMO_DOMAIN);
+    }
+
+    private void simulatedPayment(Member m, CurrentUser memberUser, boolean confirm) {
+        MemberObligation o = obligationRepository.findByMemberIdOrderByDueDateAscIdAsc(m.getId()).stream()
+                .filter(x -> x.outstanding().signum() > 0).findFirst().orElse(null);
+        if (o == null) {
+            return;
+        }
+        act(memberUser);
+        PaymentIntent intent = payments.createIntent(m.getId(), new CreateIntentRequest(o.outstanding(), o.getId(),
+                ProviderCode.MOCK), "demo-" + UUID.randomUUID(), memberUser);
+        if (confirm) {
+            payments.simulate(intent.getReference(), true, memberUser);
+        }
     }
 
     private CurrentUser staff(String local, String name, String role, String password) {

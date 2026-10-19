@@ -740,6 +740,8 @@ export interface MemberCampaignView {
   myCandidacy?: CandidateResponse;
   myResult?: ResultResponse;
   publishedResults?: PublishedResult[];
+  participantNumbers?: string[];
+  lotReferences?: string[];
 }
 
 export interface MemberFinancialSummary {

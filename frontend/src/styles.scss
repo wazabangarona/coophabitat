@@ -242,3 +242,15 @@ tr.sub td { background: var(--c-surface-2); }
   .sidebar, .topbar, .site-header, .toasts, .btn { display: none !important; }
   .shell { display: block; }
 }
+
+// Bloc de commande copiable (vérification indépendante du tirage)
+.code-block {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  margin: 0.5rem 0 0;
+  user-select: all;
+}

@@ -50,11 +50,12 @@ public interface MemberObligationRepository extends JpaRepository<MemberObligati
     @Query("""
             select o from MemberObligation o
             where o.kind = sn.coophabitat.contribution.ObligationKind.COTISATION
-              and o.dueDate = :dueDate
+              and o.dueDate between :from and :to
               and o.status in (sn.coophabitat.contribution.ObligationStatus.A_PAYER,
                                sn.coophabitat.contribution.ObligationStatus.PARTIELLE)
+            order by o.dueDate, o.id
             """)
-    List<MemberObligation> findOpenDueOn(LocalDate dueDate);
+    List<MemberObligation> findOpenDueBetween(LocalDate from, LocalDate to);
 
     @Query("""
             select coalesce(sum(o.amountDue - o.amountPaid), 0) from MemberObligation o

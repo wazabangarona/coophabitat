@@ -101,3 +101,15 @@ test('la trésorerie voit la procédure d’attribution et ses étapes', async (
   await expect(page.getByRole('list', { name: 'Étapes de la procédure' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Intégrité du tirage' })).toBeVisible();
 });
+
+test('un membre recalcule un tirage publié et obtient la commande de vérification indépendante', async ({ page }) => {
+  await login(page, 'membre1@demo.coophabitat.invalid');
+  await page.goto('/espace/attributions');
+  const tranche0 = page.locator('article').filter({ hasText: 'tranche 0' });
+  await expect(tranche0.getByRole('heading', { name: 'Résultats publiés' })).toBeVisible();
+  await tranche0.getByText('Empreintes publiées avant le tirage').click();
+  await expect(tranche0.getByText('python3 tools/verifier_tirage.py')).toBeVisible();
+  await tranche0.getByRole('button', { name: 'Recalculer le tirage' }).click();
+  await expect(tranche0.getByRole('status')).toContainText('engagement conforme');
+  await noHorizontalScroll(page);
+});

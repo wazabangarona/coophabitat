@@ -11358,6 +11358,18 @@
                         "items": {
                             "$ref": "#/components/schemas/PublishedResult"
                         }
+                    },
+                    "participantNumbers": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "lotReferences": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },

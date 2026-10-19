@@ -43,7 +43,9 @@ public class ReminderService {
         LocalDate due = today.plusDays(days);
         int created = 0;
         int count = 0;
-        for (MemberObligation o : obligations.findOpenDueOn(due)) {
+        // Fenêtre de rattrapage : une échéance due d'ici J-3 et pas encore rappelée l'est même si l'exécution
+        // du jour J-3 a été manquée (serveur arrêté ou en veille). La clé de déduplication garantit un seul rappel.
+        for (MemberObligation o : obligations.findOpenDueBetween(today.plusDays(1), due)) {
             Member m = members.findById(o.getMemberId()).orElse(null);
             if (m == null || !props.contribution().generateForStatuses().contains(m.getStatus().name())) {
                 continue;

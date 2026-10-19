@@ -64,7 +64,16 @@ import { DayPipe, LabelPipe, WhenPipe } from '../../ui/pipes';
                 <dt>Algorithme</dt><dd>{{ c.algorithmVersion }}</dd>
                 @if (c.revealedSeed) { <dt>Graine révélée</dt><dd>{{ c.revealedSeed }}</dd> }
                 @if (c.publicEntropy) { <dt>Aléa public</dt><dd>{{ c.publicEntropy }}</dd> }
+                @if (c.participantNumbers?.length) {
+                  <dt>Participants retenus ({{ c.participantNumbers!.length }})</dt><dd>{{ c.participantNumbers!.join(' ; ') }}</dd>
+                }
+                @if (c.lotReferences?.length) { <dt>Lots</dt><dd>{{ c.lotReferences!.join(' ; ') }}</dd> }
               </dl>
+              @if (c.revealedSeed) {
+                <p class="small">Vérification indépendante, sans faire confiance au serveur, avec le script public
+                  <span class="mono">tools/verifier_tirage.py</span> (Python 3, bibliothèque standard) :</p>
+                <pre class="mono small code-block">{{ verifierCommand(c) }}</pre>
+              }
             </details>
           }
 
@@ -134,6 +143,15 @@ export class MyAllocations implements OnInit {
       next: () => this.toasts.success('Contestation déposée.'),
       error: (e) => this.toasts.error(e),
     });
+  }
+
+  verifierCommand(c: MemberCampaignView): string {
+    const q = (v: string | null | undefined) => `"${(v ?? '').replace(/(["\\$`])/g, '\\$1')}"`;
+    return ['python3 tools/verifier_tirage.py',
+      `--campagne ${q(c.reference)}`, `--graine ${q(c.revealedSeed)}`, `--entropie ${q(c.publicEntropy)}`,
+      `--participants ${q((c.participantNumbers ?? []).join(';'))}`, `--lots ${q((c.lotReferences ?? []).join(';'))}`,
+      `--engagement ${q(c.seedCommitment)}`, `--empreinte-participants ${q(c.participantsDigest)}`,
+      `--empreinte-lots ${q(c.lotsDigest)}`].join(' \\\n  ');
   }
 
   verify(c: MemberCampaignView): void {
