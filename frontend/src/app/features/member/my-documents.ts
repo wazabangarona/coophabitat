@@ -4,7 +4,7 @@ import { Api, openBlob } from '../../core/api';
 import { DocumentItem, PageResponseDocumentItem } from '../../core/api-types';
 import { Loader } from '../../core/loader';
 import { Toasts } from '../../core/toast';
-import { PageHeader, Pager, StateView } from '../../ui/components';
+import { Icon, PageHeader, Pager, StateView } from '../../ui/components';
 import { BytesPipe, DayPipe, LabelPipe } from '../../ui/pipes';
 
 export const CATEGORIES = ['STATUTS', 'REGLEMENT', 'CONVOCATION', 'COMPTE_RENDU_AG', 'PV_ATTRIBUTION', 'RECU',
@@ -12,7 +12,7 @@ export const CATEGORIES = ['STATUTS', 'REGLEMENT', 'CONVOCATION', 'COMPTE_RENDU_
 
 @Component({
   selector: 'app-my-documents',
-  imports: [FormsModule, PageHeader, StateView, Pager, LabelPipe, DayPipe, BytesPipe],
+  imports: [FormsModule, PageHeader, StateView, Pager, Icon, LabelPipe, DayPipe, BytesPipe],
   template: `
     <app-page-header title="Documents" subtitle="Documents publiés aux membres et documents qui vous concernent." />
     <div class="filters">
@@ -23,13 +23,16 @@ export const CATEGORIES = ['STATUTS', 'REGLEMENT', 'CONVOCATION', 'COMPTE_RENDU_
         </select></label>
     </div>
     <app-state [loading]="list.loading()" [error]="list.error()" [empty]="!list.data()?.content?.length"
-      emptyText="Aucun document." (retry)="list.reload()">
+      emptyText="Aucun document." emptyHint="Les documents publiés aux membres et ceux qui vous concernent apparaîtront ici." emptyIcon="file-text" (retry)="list.reload()">
       <ul class="doc-list">
         @for (d of list.data()?.content; track d.id) {
-          <li class="card row between">
-            <div><strong>{{ d.title }}</strong>
-              <p class="muted small">{{ d.category | label }} · {{ d.visibility | label }} · {{ (d.publishedAt || d.createdAt) | day }} · {{ d.sizeBytes | bytes }}</p></div>
-            <button type="button" class="btn small" (click)="open(d)">Ouvrir</button>
+          <li class="row between">
+            <div class="doc-row">
+              <span class="doc-icon"><app-icon [name]="d.category === 'RECU' ? 'receipt' : 'file-text'" /></span>
+              <div class="doc-body"><strong>{{ d.title }}</strong>
+                <p class="muted small">{{ d.category | label }} · {{ d.visibility | label }} · {{ (d.publishedAt || d.createdAt) | day }} · {{ d.sizeBytes | bytes }}</p></div>
+            </div>
+            <button type="button" class="btn small" (click)="open(d)"><app-icon name="external-link" />Ouvrir</button>
           </li>
         }
       </ul>

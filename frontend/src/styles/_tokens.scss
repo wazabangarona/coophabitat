@@ -1,0 +1,197 @@
+/*
+ * CoopHabitat — jetons du système de conception « Quiet Luxury ».
+ * Les couleurs identitaires sont le bleu encre et le vert profond ; le reste de l'interface est blanc et gris
+ * minéral. Contrastes vérifiés (WCAG 2.1) : texte courant ≥ 7:1, texte secondaire ≥ 4.5:1, états ≥ 4.5:1.
+ * #727B78 (gris secondaire de la charte, 4.36:1 sur blanc) est réservé aux icônes, traits et grands textes ;
+ * le texte secondaire de petite taille utilise --c-muted (#5F6865, 5.5:1).
+ */
+
+// Points de rupture (les propriétés personnalisées ne sont pas utilisables dans les requêtes média).
+$bp-sm: 600px;
+$bp-md: 900px;
+$bp-lg: 1200px;
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* Palette de la charte */
+  --ink-900: #152b3c;
+  --ink-800: #1d3a50;
+  --ink-600: #3b5568;
+  --green-700: #245c4b;
+  --green-800: #1b4a3c;
+  --green-100: #e8f1eb;
+  --paper: #fafaf7;
+  --white: #ffffff;
+  --gray-100: #f1f3f1;
+  --gray-200: #dde2de;
+  --gray-300: #c9d0cb;
+  --gray-500: #727b78;
+  --gray-600: #5f6865;
+  --text-900: #202a27;
+  --red-600: #b54747;
+  --amber-600: #986c22;
+
+  /* Rôles sémantiques */
+  --c-bg: var(--paper);
+  --c-surface: var(--white);
+  --c-surface-2: var(--gray-100);
+  --c-surface-sunken: #f5f6f3;
+  --c-text: var(--text-900);
+  --c-heading: var(--ink-900);
+  --c-muted: var(--gray-600);
+  --c-subtle: var(--gray-500);
+  --c-border: var(--gray-200);
+  --c-border-strong: var(--gray-300);
+  --c-ink: var(--ink-900);
+  --c-ink-ink: #ffffff;
+  --c-primary: var(--green-700);
+  --c-primary-hover: var(--green-800);
+  --c-primary-ink: #ffffff;
+  --c-primary-soft: var(--green-100);
+  --c-focus: #2f6c8f;
+  --c-overlay: rgb(21 43 60 / 42%);
+
+  /* États : chaque couleur garde la même signification sur tous les écrans. */
+  --c-ok: var(--green-700);
+  --c-ok-bg: var(--green-100);
+  --c-warn: #8a611e;
+  --c-warn-bg: #f8f1e4;
+  --c-bad: var(--red-600);
+  --c-bad-bg: #faefef;
+  --c-info: #2f5a78;
+  --c-info-bg: #eaf0f5;
+  --c-sim: #5b4b7a;
+  --c-sim-bg: #efecf4;
+  --c-demo: #6b5518;
+  --c-demo-bg: #f5ecd2;
+  --c-offline: #3e4744;
+  --c-offline-bg: #e6e9e7;
+
+  /* Typographie */
+  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 1.875rem;
+  --fs-display: clamp(2.25rem, 3.2vw + 1.1rem, 3.75rem);
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --lh-tight: 1.15;
+  --lh-snug: 1.3;
+  --lh-body: 1.6;
+  --tracking-tight: -0.022em;
+  --tracking-caps: 0.08em;
+
+  /* Espacements (base 4 px) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+  --sp-16: 4rem;
+  --sp-20: 5rem;
+  --sp-24: 6rem;
+
+  /* Rayons : sobres, plus marqués seulement pour les photographies. */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* Ombres : légères, teintées d'encre. */
+  --sh-1: 0 1px 2px rgb(21 43 60 / 5%);
+  --sh-2: 0 1px 2px rgb(21 43 60 / 4%), 0 10px 28px -16px rgb(21 43 60 / 18%);
+  --sh-pop: 0 2px 6px rgb(21 43 60 / 6%), 0 24px 48px -20px rgb(21 43 60 / 30%);
+
+  /* Bordures */
+  --bw: 1px;
+  --line: var(--bw) solid var(--c-border);
+
+  /* Largeurs */
+  --w-site: 1240px;
+  --w-content: 1180px;
+  --w-prose: 680px;
+  --w-form: 560px;
+  --sidebar: 252px;
+  --topbar: 60px;
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+
+  /* Hauteurs de composants */
+  --h-control: 40px;
+  --h-control-sm: 32px;
+  --h-touch: 44px;
+
+  /* Mouvement */
+  --t-fast: 120ms;
+  --t-base: 180ms;
+  --t-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  color-scheme: light;
+}
+
+/* Thème sombre : mêmes rôles, valeurs recalculées pour garder les contrastes. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0f1a22;
+    --c-surface: #15232d;
+    --c-surface-2: #1b2c37;
+    --c-surface-sunken: #122029;
+    --c-text: #e6ebe8;
+    --c-heading: #f2f5f3;
+    --c-muted: #a6b1ad;
+    --c-subtle: #8c9894;
+    --c-border: #2a3c47;
+    --c-border-strong: #38505d;
+    --c-ink: #e8eef2;
+    --c-ink-ink: #152b3c;
+    --c-primary: #7cc3a6;
+    --c-primary-hover: #93d1b7;
+    --c-primary-ink: #0d2a20;
+    --c-primary-soft: #183a30;
+    --c-focus: #8cc2e6;
+    --c-overlay: rgb(0 0 0 / 55%);
+    --c-ok: #8fd3b1; --c-ok-bg: #173529;
+    --c-warn: #e9c27d; --c-warn-bg: #36290f;
+    --c-bad: #f0a3a3; --c-bad-bg: #3b1d1f;
+    --c-info: #9cc4e2; --c-info-bg: #16304a;
+    --c-sim: #c9b8ec; --c-sim-bg: #2b2442;
+    --c-demo: #ecd58f; --c-demo-bg: #3b3110;
+    --c-offline: #d3d9d6; --c-offline-bg: #2b3438;
+    --sh-1: 0 1px 2px rgb(0 0 0 / 30%);
+    --sh-2: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 32px -16px rgb(0 0 0 / 50%);
+    --sh-pop: 0 2px 6px rgb(0 0 0 / 35%), 0 24px 48px -20px rgb(0 0 0 / 60%);
+    color-scheme: dark;
+  }
+}

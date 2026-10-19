@@ -7,7 +7,7 @@ import { Auth } from '../../core/auth';
 import { Dialogs } from '../../core/dialog';
 import { Busy, Loader } from '../../core/loader';
 import { Toasts } from '../../core/toast';
-import { PageHeader, Pager, StateView } from '../../ui/components';
+import { Icon, PageHeader, Pager, StateView } from '../../ui/components';
 import { BytesPipe, DayPipe, LabelPipe } from '../../ui/pipes';
 import { CATEGORIES } from '../member/my-documents';
 
@@ -15,20 +15,20 @@ const VISIBILITIES = ['PUBLIC', 'MEMBRES', 'BUREAU', 'PRIVE_MEMBRE'];
 
 @Component({
   selector: 'app-bureau-documents',
-  imports: [FormsModule, PageHeader, StateView, Pager, LabelPipe, DayPipe, BytesPipe],
+  imports: [FormsModule, PageHeader, StateView, Pager, Icon, LabelPipe, DayPipe, BytesPipe],
   template: `
     <app-page-header title="Documents" subtitle="Les fichiers sont conservés avec leur empreinte SHA-256 ; un document publié n’est jamais modifié, il est archivé et remplacé." />
     @if (auth.has('DOCUMENT_MANAGE')) {
-      <form class="card grid-2" (ngSubmit)="upload()" #f="ngForm">
-        <h2 class="span-2">Déposer un document</h2>
+      <details class="card"><summary>Déposer un nouveau document</summary>
+      <form class="grid-2" (ngSubmit)="upload()" #f="ngForm">
         <label class="field span-2"><span>Titre</span><input name="t" [(ngModel)]="u.title" required /></label>
         <label class="field"><span>Catégorie</span><select name="c" [(ngModel)]="u.category">@for (c of categories; track c) { <option [value]="c">{{ c | label }}</option> }</select></label>
         <label class="field"><span>Visibilité initiale</span><select name="v" [(ngModel)]="u.visibility">@for (v of visibilities; track v) { <option [value]="v">{{ v | label }}</option> }</select></label>
         @if (u.visibility === 'PRIVE_MEMBRE') { <label class="field"><span>Identifiant du membre concerné</span><input type="number" name="o" [(ngModel)]="u.ownerMemberId" required /></label> }
         <label class="field span-2"><span>Fichier (PDF, JPEG, PNG)</span><input type="file" accept="application/pdf,image/jpeg,image/png" (change)="pick($event)" required /></label>
         <p class="span-2 small muted">Ne déposez pas de document officiel dont l’authenticité n’est pas établie. Les statuts et règlements doivent être les versions adoptées.</p>
-        <div class="span-2"><button class="btn primary" [disabled]="f.invalid || !file || busy.on()">Déposer</button></div>
-      </form>
+        <div class="span-2 form-actions"><button class="btn primary" [disabled]="f.invalid || !file || busy.on()">Déposer</button></div>
+      </form></details>
     }
     <div class="filters">
       <label class="field inline"><span>Catégorie</span><select [(ngModel)]="category" (ngModelChange)="go(0)"><option value="">Toutes</option>
@@ -36,19 +36,20 @@ const VISIBILITIES = ['PUBLIC', 'MEMBRES', 'BUREAU', 'PRIVE_MEMBRE'];
       <label class="field inline"><span>Visibilité</span><select [(ngModel)]="visibility" (ngModelChange)="go(0)"><option value="">Toutes</option>
         @for (v of visibilities; track v) { <option [value]="v">{{ v | label }}</option> }</select></label>
     </div>
-    <app-state [loading]="list.loading()" [error]="list.error()" [empty]="!list.data()?.content?.length" emptyText="Aucun document." (retry)="list.reload()">
+    <app-state [loading]="list.loading()" [error]="list.error()" [empty]="!list.data()?.content?.length" emptyText="Aucun document." emptyIcon="folder-open" (retry)="list.reload()">
       <ul class="doc-list">@for (d of list.data()?.content; track d.id) {
-        <li class="card"><div class="row between"><strong>{{ d.title }}</strong><span class="badge" data-tone="info">{{ d.visibility | label }}</span></div>
+        <li><div class="doc-row"><span class="doc-icon"><app-icon name="file-text" /></span><div class="doc-body">
+          <div class="row between"><strong>{{ d.title }}</strong><span class="badge" [attr.data-tone]="d.archivedAt ? 'neutral' : 'info'">{{ d.visibility | label }}</span></div>
           <p class="small muted">{{ d.reference }} · {{ d.category | label }} · {{ d.createdAt | day }} · {{ d.sizeBytes | bytes }}{{ d.generated ? ' · généré par l’application' : '' }}
             @if (d.archivedAt) { · archivé le {{ d.archivedAt | day }} }</p>
-          <p class="small muted mono">SHA-256 : {{ d.sha256 }}</p>
-          <div class="row"><button type="button" class="btn small" (click)="open(d)">Ouvrir</button>
+          <p class="doc-hash">SHA-256 : {{ d.sha256 }}</p>
+          <div class="row doc-actions"><button type="button" class="btn small" (click)="open(d)"><app-icon name="external-link" />Ouvrir</button>
             @if (auth.has('DOCUMENT_MANAGE') && !d.archivedAt) {
               <select [(ngModel)]="publishTo[d.id!]" [attr.aria-label]="'Nouvelle visibilité pour ' + d.title"><option [ngValue]="undefined">Publier pour…</option>
                 @for (v of visibilities; track v) { @if (v !== d.visibility && v !== 'PRIVE_MEMBRE') { <option [value]="v">{{ v | label }}</option> } }</select>
               <button type="button" class="btn small" [disabled]="!publishTo[d.id!]" (click)="publish(d)">Publier</button>
               <button type="button" class="btn small" (click)="archive(d)">Archiver</button>
-            }</div></li>
+            }</div></div></div></li>
       }</ul>
       <app-pager [page]="page()" [totalPages]="list.data()?.totalPages ?? 0" [total]="list.data()?.totalElements ?? 0" (go)="go($event)" />
     </app-state>

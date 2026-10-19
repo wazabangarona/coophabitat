@@ -3,11 +3,11 @@
  * Règle stricte : seules l'application (fichiers statiques) et trois informations publiques sont mises en cache.
  * Aucune réponse de l'API privée (données personnelles ou financières) n'est jamais stockée ici.
  */
-const VERSION = 'coophabitat-v1';
+const VERSION = 'coophabitat-v2';
 const SHELL = `${VERSION}-app`;
 const PUBLIC = `${VERSION}-public`;
 const PUBLIC_API = ['/api/v1/public/info', '/api/v1/public/projects', '/api/v1/public/documents'];
-const STATIC = /\.(?:js|css|svg|png|woff2?|webmanifest)$/;
+const STATIC = /\.(?:js|css|svg|png|jpe?g|webp|avif|woff2?|webmanifest)$/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll(['/', '/index.html', '/icon.svg', '/manifest.webmanifest'])).then(() => self.skipWaiting()));

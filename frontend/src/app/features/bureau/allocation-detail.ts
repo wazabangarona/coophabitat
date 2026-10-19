@@ -42,7 +42,7 @@ interface CommissionCandidate { userId: number; displayName: string; roles: stri
         </ol>
 
         <!-- Action attendue à l'étape courante -->
-        <section class="card" aria-labelledby="next">
+        <section class="card next-step" aria-labelledby="next">
           <h2 id="next">Étape suivante</h2>
           @switch (x.c.status) {
             @case ('BROUILLON') {

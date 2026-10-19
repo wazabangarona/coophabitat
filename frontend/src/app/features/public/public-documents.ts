@@ -3,25 +3,28 @@ import { Api, openBlob } from '../../core/api';
 import { DocumentItem } from '../../core/api-types';
 import { Loader } from '../../core/loader';
 import { Toasts } from '../../core/toast';
-import { PageHeader, StateView } from '../../ui/components';
+import { Icon, PageHeader, StateView } from '../../ui/components';
 import { BytesPipe, DayPipe, LabelPipe } from '../../ui/pipes';
 
 @Component({
   selector: 'app-public-documents',
-  imports: [PageHeader, StateView, LabelPipe, DayPipe, BytesPipe],
+  imports: [PageHeader, StateView, Icon, LabelPipe, DayPipe, BytesPipe],
   template: `
     <app-page-header title="Documents publics" subtitle="Documents que la coopérative a choisi de rendre publics." />
     <app-state [loading]="list.loading()" [error]="list.error()" [empty]="!list.data()?.length"
-      emptyText="Aucun document public n’a encore été publié." (retry)="list.reload()">
+      emptyText="Aucun document public n’a encore été publié." emptyIcon="file-text" (retry)="list.reload()">
       <ul class="doc-list">
         @for (d of list.data(); track d.id) {
-          <li class="card row between">
-            <div>
-              <strong>{{ d.title }}</strong>
-              <p class="muted small">{{ d.category | label }} · publié le {{ d.publishedAt | day }} · {{ d.sizeBytes | bytes }}</p>
-              <p class="muted small mono" title="Empreinte SHA-256 du fichier">SHA-256 : {{ d.sha256 }}</p>
+          <li class="row between">
+            <div class="doc-row">
+              <span class="doc-icon"><app-icon name="file-text" /></span>
+              <div class="doc-body">
+                <strong>{{ d.title }}</strong>
+                <p class="muted small">{{ d.category | label }} · publié le {{ d.publishedAt | day }} · {{ d.sizeBytes | bytes }}</p>
+                <p class="doc-hash" title="Empreinte SHA-256 du fichier">SHA-256 : {{ d.sha256 }}</p>
+              </div>
             </div>
-            <button type="button" class="btn small" (click)="open(d)">Ouvrir</button>
+            <button type="button" class="btn small" (click)="open(d)"><app-icon name="external-link" />Ouvrir</button>
           </li>
         }
       </ul>

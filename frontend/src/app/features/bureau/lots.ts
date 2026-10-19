@@ -7,23 +7,33 @@ import { LotHistoryItem, LotResponse, ProjectResponse } from '../../core/api-typ
 import { Auth } from '../../core/auth';
 import { Busy, Loader } from '../../core/loader';
 import { Toasts } from '../../core/toast';
-import { Badge, PageHeader, Pager, StateView } from '../../ui/components';
+import { Badge, Icon, Kpi, PageHeader, Pager, StateView } from '../../ui/components';
 import { LabelPipe, NumPipe, WhenPipe } from '../../ui/pipes';
 
 export const LOT_STATUSES = ['EN_PREPARATION', 'DISPONIBLE', 'RESERVE', 'ATTRIBUE', 'LITIGIEUX', 'INDISPONIBLE'];
 const LOT_TYPES = ['TERRAIN', 'VILLA', 'APPARTEMENT', 'DUPLEX', 'LOCAL'];
 const PROJECT_STATUSES = ['ETUDE', 'EN_COURS', 'LIVRE', 'SUSPENDU'];
 
+const VIEW_KEY = 'coophabitat.lots.vue';
+
+function readView(): 'grid' | 'table' {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'grid';
+  } catch {
+    return 'grid';
+  }
+}
+
 interface Page<T> { content?: T[]; totalPages?: number; totalElements?: number }
 
 @Component({
   selector: 'app-lots',
-  imports: [FormsModule, RouterLink, PageHeader, StateView, Pager, Badge, LabelPipe, NumPipe],
+  imports: [FormsModule, RouterLink, PageHeader, StateView, Pager, Badge, Icon, LabelPipe, NumPipe],
   template: `
     <app-page-header title="Projets et lots" subtitle="Inventaire du patrimoine. Les statuts « réservé » et « attribué » ne sont posés que par une procédure d’attribution.">
       @if (auth.has('LOT_WRITE')) {
         <button type="button" class="btn small" (click)="projectForm.set(!projectForm())">Nouveau projet</button>
-        <button type="button" class="btn small primary" (click)="lotForm.set(!lotForm())">Nouveau lot</button>
+        <button type="button" class="btn small primary" (click)="lotForm.set(!lotForm())"><app-icon name="plus" />Nouveau lot</button>
       }
     </app-page-header>
 
@@ -37,7 +47,7 @@ interface Page<T> { content?: T[]; totalPages?: number; totalElements?: number }
           <label class="field"><span>Commune</span><input name="co" [(ngModel)]="pr.commune" /></label>
           <label class="field"><span>Statut</span><select name="s" [(ngModel)]="pr.status">@for (s of projectStatuses; track s) { <option [value]="s">{{ s | label }}</option> }</select></label>
           <label class="field span-2"><span>Description</span><textarea name="de" [(ngModel)]="pr.description"></textarea></label>
-          <div class="span-2"><button class="btn primary" [disabled]="pf.invalid || busy.on()">Créer le projet</button></div>
+          <div class="span-2 form-actions"><button class="btn primary" [disabled]="pf.invalid || busy.on()">Créer le projet</button></div>
         </form>
       </section>
     }
@@ -59,16 +69,16 @@ interface Page<T> { content?: T[]; totalPages?: number; totalElements?: number }
           <label class="field"><span>Source des coordonnées</span><input name="cs" [(ngModel)]="lot.coordinatesSource" placeholder="Relevé du géomètre, plan cadastral…" /></label>
           <label class="check"><input type="checkbox" name="cv" [(ngModel)]="lot.coordinatesVerified" /> Coordonnées vérifiées par un professionnel</label>
           <label class="field span-2"><span>Description</span><textarea name="de" [(ngModel)]="lot.description"></textarea></label>
-          <div class="span-2"><button class="btn primary" [disabled]="lf.invalid || busy.on()">Créer le lot (en préparation)</button></div>
+          <div class="span-2 form-actions"><button class="btn primary" [disabled]="lf.invalid || busy.on()">Créer le lot (en préparation)</button></div>
         </form>
       </section>
     }
 
-    <section class="card"><h2>Projets</h2>
+    <section class="card"><div class="card-head"><h2>Projets</h2></div>
       <app-state [loading]="projects.loading()" [error]="projects.error()" [empty]="!projects.data()?.length" emptyText="Aucun projet." (retry)="projects.reload()">
-        <ul class="plain">@for (p of projects.data(); track p.id) {
-          <li class="row between"><span><strong>{{ p.name }}</strong> <small class="muted">{{ p.code }} · {{ p.commune || '—' }}</small></span>
-            <span><app-badge [value]="p.status" /> {{ p.lotCount | num }} lot(s)</span></li>
+        <ul class="list-rows">@for (p of projects.data(); track p.id) {
+          <li><span><strong>{{ p.name }}</strong><br /><small class="muted">{{ p.code }} · {{ p.commune || '—' }}</small></span>
+            <span class="row gap-lg"><span class="num">{{ p.lotCount | num }} lot(s)</span><app-badge [value]="p.status" /></span></li>
         }</ul>
       </app-state>
     </section>
@@ -81,15 +91,40 @@ interface Page<T> { content?: T[]; totalPages?: number; totalElements?: number }
         @for (s of statuses; track s) { <option [value]="s">{{ s | label }}</option> }</select></label>
       <button class="btn">Rechercher</button>
     </form>
-    <app-state [loading]="lots.loading()" [error]="lots.error()" [empty]="!lots.data()?.content?.length" emptyText="Aucun lot." (retry)="lots.reload()">
-      <div class="table-wrap"><table>
-        <thead><tr><th>Référence</th><th>Projet</th><th>Type</th><th class="num">Surface</th><th>Localisation</th><th>Statut</th></tr></thead>
-        <tbody>@for (l of lots.data()?.content; track l.id) {
-          <tr><td data-label="Référence"><a [routerLink]="['/bureau/lots', l.id]">{{ l.reference }}</a></td><td data-label="Projet">{{ l.projectName }}</td>
-            <td data-label="Type">{{ l.lotType | label }}</td><td data-label="Surface" class="num">{{ l.areaM2 | num }} m²</td>
-            <td data-label="Localisation">{{ l.commune }}{{ l.locality ? ', ' + l.locality : '' }}</td><td data-label="Statut"><app-badge [value]="l.status" /></td></tr>
-        }</tbody>
-      </table></div>
+    <div class="row between list-toolbar">
+      <p class="muted small">{{ lots.data()?.totalElements ?? 0 }} lot(s)</p>
+      <div class="view-toggle" role="group" aria-label="Affichage des lots">
+        <button type="button" [attr.aria-pressed]="view() === 'grid'" (click)="setView('grid')"><app-icon name="layout-grid" />Grille</button>
+        <button type="button" [attr.aria-pressed]="view() === 'table'" (click)="setView('table')"><app-icon name="list" />Tableau</button>
+      </div>
+    </div>
+    <app-state [loading]="lots.loading()" [error]="lots.error()" [empty]="!lots.data()?.content?.length" emptyText="Aucun lot."
+      emptyHint="Modifiez les filtres ou créez un lot pour l’inventaire." emptyIcon="map-pin" (retry)="lots.reload()">
+      @if (view() === 'grid') {
+        <div class="lot-grid">
+          @for (l of lots.data()?.content; track l.id) {
+            <a class="lot-card" [routerLink]="['/bureau/lots', l.id]">
+              <div class="plan-art"><app-badge [value]="l.status" /><app-icon [name]="l.lotType === 'TERRAIN' ? 'map' : 'building-2'" /></div>
+              <div class="lot-body">
+                <span class="lot-ref">{{ l.reference }}</span>
+                <span class="lot-meta"><span>{{ l.lotType | label }} · {{ l.projectName }}</span></span>
+                <span class="lot-meta"><span><app-icon name="map-pin" />{{ l.commune }}{{ l.locality ? ', ' + l.locality : '' }}</span></span>
+                <span class="lot-figure">{{ l.areaM2 | num }} <small>m²</small></span>
+              </div>
+            </a>
+          }
+        </div>
+        <p class="chart-caption">Motif graphique non représentatif : il ne s’agit ni d’une photographie ni d’un plan cadastral.</p>
+      } @else {
+        <div class="table-wrap"><table>
+          <thead><tr><th>Référence</th><th>Projet</th><th>Type</th><th class="num">Surface</th><th>Localisation</th><th>Statut</th></tr></thead>
+          <tbody>@for (l of lots.data()?.content; track l.id) {
+            <tr><td data-label="Référence"><a [routerLink]="['/bureau/lots', l.id]">{{ l.reference }}</a></td><td data-label="Projet">{{ l.projectName }}</td>
+              <td data-label="Type">{{ l.lotType | label }}</td><td data-label="Surface" class="num">{{ l.areaM2 | num }} m²</td>
+              <td data-label="Localisation">{{ l.commune }}{{ l.locality ? ', ' + l.locality : '' }}</td><td data-label="Statut"><app-badge [value]="l.status" /></td></tr>
+          }</tbody>
+        </table></div>
+      }
       <app-pager [page]="page()" [totalPages]="lots.data()?.totalPages ?? 0" [total]="lots.data()?.totalElements ?? 0" (go)="go($event)" />
     </app-state>
   `,
@@ -103,6 +138,7 @@ export class Lots implements OnInit {
   protected readonly page = signal(0);
   protected readonly projectForm = signal(false);
   protected readonly lotForm = signal(false);
+  protected readonly view = signal<'grid' | 'table'>(readView());
   protected readonly busy = new Busy();
   protected readonly statuses = LOT_STATUSES;
   protected readonly lotTypes = LOT_TYPES;
@@ -121,6 +157,15 @@ export class Lots implements OnInit {
   go(p: number): void {
     this.page.set(p);
     this.lots.load(() => this.api.get<Page<LotResponse>>('/property/lots', { q: this.q.trim(), status: this.status, projectId: this.projectId, page: p, size: 25 }));
+  }
+
+  setView(v: 'grid' | 'table'): void {
+    this.view.set(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // Stockage local indisponible : la préférence ne sera simplement pas conservée.
+    }
   }
 
   saveProject(): void {
@@ -148,13 +193,19 @@ export class Lots implements OnInit {
 
 @Component({
   selector: 'app-lot',
-  imports: [FormsModule, PageHeader, StateView, Badge, LabelPipe, NumPipe, WhenPipe],
+  imports: [FormsModule, PageHeader, StateView, Badge, Kpi, LabelPipe, NumPipe, WhenPipe],
   template: `
     <app-state [loading]="d.loading() && !d.data()" [error]="d.error()" (retry)="d.reload()">
       @if (d.data(); as x) {
         <app-page-header [title]="'Lot ' + x.lot.reference" [subtitle]="x.lot.projectName" back="/bureau/lots" backLabel="Projets et lots" />
         @if (x.lot.demo) { <p class="alert" data-tone="demo">Lot fictif de démonstration.</p> }
+        <div class="kpis">
+          <app-kpi label="Surface" [value]="(x.lot.areaM2 | num) + ' m²'" />
+          <app-kpi label="Type" [value]="x.lot.lotType | label" />
+          <app-kpi label="Commune" [value]="x.lot.commune || '—'" [hint]="x.lot.departement ?? ''" />
+        </div>
         <section class="card">
+          <div class="card-head"><h2>Fiche du lot</h2><app-badge [value]="x.lot.status" /></div>
           <dl class="dl">
             <dt>Statut</dt><dd><app-badge [value]="x.lot.status" /></dd>
             <dt>Type</dt><dd>{{ x.lot.lotType | label }}</dd><dt>Surface</dt><dd>{{ x.lot.areaM2 | num }} m²</dd>
@@ -175,13 +226,13 @@ export class Lots implements OnInit {
               <label class="field"><span>Nouveau statut</span><select name="s" [(ngModel)]="st.status" required>
                 @for (s of manualStatuses; track s) { <option [value]="s">{{ s | label }}</option> }</select></label>
               <label class="field"><span>Motif</span><input name="r" [(ngModel)]="st.reason" required minlength="5" /></label>
-              <div class="span-2"><button class="btn" [disabled]="f.invalid || busy.on()">Appliquer</button></div>
+              <div class="span-2 form-actions"><button class="btn" [disabled]="f.invalid || busy.on()">Appliquer</button></div>
             </form>
             <p class="muted small">Un lot réservé ou attribué ne peut changer de statut que par la procédure d’attribution (résultat, annulation, contestation).</p>
           </section>
         }
         <section class="card"><h2>Historique</h2>
-          <ul class="plain">@for (h of x.history; track h.id) {
+          <ul class="timeline">@for (h of x.history; track h.id) {
             <li>{{ h.changedAt | when }} : {{ h.fromStatus | label }} → <strong>{{ h.toStatus | label }}</strong> — {{ h.reason }}
               @if (h.sourceType) { <small class="muted">({{ h.sourceType }} n° {{ h.sourceId }})</small> }</li>
           }</ul>
