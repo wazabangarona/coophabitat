@@ -1,0 +1,24 @@
+# Développement local : seule la base PostgreSQL est lancée en conteneur, exposée sur 127.0.0.1:5432.
+# Le serveur (mvn spring-boot:run) et le frontend (ng serve) tournent sur la machine du développeur.
+#   docker compose -f docker-compose.dev.yml up -d
+name: coophabitat-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: coophabitat
+      POSTGRES_USER: coophabitat
+      POSTGRES_PASSWORD: ${COOPHABITAT_DB_PASSWORD:-devpass}
+      TZ: Africa/Dakar
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coophabitat -d coophabitat"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  db-dev:
