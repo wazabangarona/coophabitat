@@ -119,7 +119,7 @@ class ApiSweepIT extends IntegrationTest {
         for (String path : List.of("/api/v1/me/profile", "/api/v1/me/summary", "/api/v1/me/obligations", "/api/v1/me/data-requests",
                 "/api/v1/allocations/me", "/api/v1/notifications/inbox", "/api/v1/notifications/inbox/unread-count",
                 "/api/v1/members/" + m.getId() + "/receipts", "/api/v1/payments/members/" + m.getId() + "/transactions",
-                "/api/v1/property/lots", "/api/v1/assemblies", "/api/v1/finance/reports", "/api/v1/documents")) {
+                "/api/v1/property/lots", "/api/v1/assemblies", "/api/v1/finance/reports", "/api/v1/finance/summary", "/api/v1/documents")) {
             mvc.perform(get(path).header("Authorization", bearer(t))).andExpect(status().isOk());
         }
         mvc.perform(get("/api/v1/me/profile").header("Authorization", bearer(t))).andExpect(jsonPath("$.notes").doesNotExist());
@@ -137,5 +137,7 @@ class ApiSweepIT extends IntegrationTest {
                 .andExpect(status().isOk());
         mvc.perform(get("/api/v1/members").header("Authorization", bearer(t))).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/dashboard/bureau").header("Authorization", bearer(t))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/finance/expenses").header("Authorization", bearer(t))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/finance/entries").header("Authorization", bearer(t))).andExpect(status().isForbidden());
     }
 }

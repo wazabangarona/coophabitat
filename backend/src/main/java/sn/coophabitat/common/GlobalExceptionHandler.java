@@ -56,8 +56,17 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "VALIDATION", "Certaines données sont invalides", req, errors);
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
-            MissingServletRequestParameterException.class, MissingRequestHeaderException.class})
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    ResponseEntity<ApiError> missingHeader(MissingRequestHeaderException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "EN_TETE_MANQUANT", "En-tête requis manquant : " + ex.getHeaderName(), req, List.of());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<ApiError> missingParam(MissingServletRequestParameterException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "PARAMETRE_MANQUANT", "Paramètre requis manquant : " + ex.getParameterName(), req, List.of());
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
     ResponseEntity<ApiError> badRequest(Exception ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "REQUETE_INVALIDE", "Requête invalide ou incomplète", req, List.of());
     }

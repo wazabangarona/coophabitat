@@ -801,8 +801,8 @@ public class AllocationService {
                 a.getDecision(), a.getComment(), a.getTargetId(), a.getDecidedAt())).toList();
     }
 
-    public List<MinutesResponse> minutesResponses(Long id) {
-        return minutes.findByCampaignIdOrderByVersionNoAsc(id).stream().map(m -> new MinutesResponse(m.getId(),
+    public List<PvResponse> minutesResponses(Long id) {
+        return minutes.findByCampaignIdOrderByVersionNoAsc(id).stream().map(m -> new PvResponse(m.getId(),
                 m.getVersionNo(), m.getDocumentId(), m.getStatus(), m.getGeneratedAt(), m.getValidatedAt())).toList();
     }
 
@@ -830,7 +830,8 @@ public class AllocationService {
             ResultResponse myResult = mine == null ? null : results.findByCandidateIdAndStatusNot(mine.getId(),
                     AllocationResult.Status.ANNULE).map(this::resultResponse).orElse(null);
             List<PublishedResult> published = List.of();
-            if (c.getStatus() == CampaignStatus.RESULTATS_PUBLIES || c.getStatus() == CampaignStatus.ARCHIVEE) {
+            boolean resultsPublic = resultsPublic(c);
+            if (resultsPublic) {
                 published = results.findByCampaignIdOrderByDrawRankAscIdAsc(c.getId()).stream()
                         .filter(r -> r.getStatus() != AllocationResult.Status.ANNULE)
                         .map(r -> {
@@ -840,10 +841,39 @@ public class AllocationService {
             }
             views.add(new MemberCampaignView(c.getId(), c.getReference(), c.getTitle(), c.getMethod(), c.getStatus(),
                     c.getEligibilityText(), c.getRulesText(), c.getReferenceDate(), c.getApplicationClosesAt(),
-                    c.getSeedCommitment(), c.getParticipantsDigest(), mine != null && mine.getWithdrawnAt() == null,
+                    c.getSeedCommitment(), c.getParticipantsDigest(), c.getLotsDigest(), c.getAlgorithmVersion(),
+                    resultsPublic && c.isSeedRevealed() ? c.getSeedSecret() : null,
+                    resultsPublic ? c.getPublicEntropy() : null, mine != null && mine.getWithdrawnAt() == null,
                     mine == null ? null : candidateResponse(mine), myResult, published));
         }
         return views;
+    }
+
+    /** Comptes pouvant siéger en commission : responsables actifs, sans exposer leurs coordonnées. */
+    @Transactional(readOnly = true)
+    public List<CommissionCandidate> commissionCandidates() {
+        return users.findActiveByRoles(List.of("PRESIDENT", "TRESORIER", "SECRETAIRE", "AUDITEUR", "AGENT_DE_GESTION", "MEMBRE"))
+                .stream()
+                .map(u -> new CommissionCandidate(u.getId(), u.getDisplayName(), u.getRoles().stream().sorted().toList()))
+                .sorted(Comparator.comparing(CommissionCandidate::displayName))
+                .toList();
+    }
+
+    /**
+     * Vérification ouverte aux membres une fois les résultats publiés : elle ne manipule que des numéros de membre
+     * et des références de lot, déjà publiés.
+     */
+    @Transactional(readOnly = true)
+    public DrawVerification verifyForMember(Long id) {
+        AllocationCampaign c = get(id);
+        if (!resultsPublic(c)) {
+            throw BusinessException.rule("RESULTATS_NON_PUBLIES", "La vérification sera possible après publication des résultats");
+        }
+        return verify(id);
+    }
+
+    private static boolean resultsPublic(AllocationCampaign c) {
+        return c.getStatus() == CampaignStatus.RESULTATS_PUBLIES || c.getStatus() == CampaignStatus.ARCHIVEE;
     }
 
     // ================================================================== outils internes

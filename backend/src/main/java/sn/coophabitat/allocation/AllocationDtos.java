@@ -79,7 +79,7 @@ public final class AllocationDtos {
                                    Instant decidedAt) {
     }
 
-    public record MinutesResponse(Long id, int versionNo, Long documentId, AllocationMinutes.Status status,
+    public record PvResponse(Long id, int versionNo, Long documentId, AllocationMinutes.Status status,
                                   Instant generatedAt, Instant validatedAt) {
     }
 
@@ -98,10 +98,15 @@ public final class AllocationDtos {
     public record MemberCampaignView(Long id, String reference, String title, AllocationMethod method,
                                      CampaignStatus status, String eligibilityText, String rulesText,
                                      LocalDate referenceDate, Instant applicationClosesAt, String seedCommitment,
-                                     String participantsDigest, boolean applied, CandidateResponse myCandidacy,
-                                     ResultResponse myResult, List<PublishedResult> publishedResults) {
+                                     String participantsDigest, String lotsDigest, String algorithmVersion,
+                                     String revealedSeed, String publicEntropy, boolean applied,
+                                     CandidateResponse myCandidacy, ResultResponse myResult,
+                                     List<PublishedResult> publishedResults) {
     }
 
     public record PublishedResult(String memberNumber, String lotReference, Integer drawRank, AllocationResult.Status status) {
+    }
+
+    public record CommissionCandidate(Long userId, String displayName, List<String> roles) {
     }
 }

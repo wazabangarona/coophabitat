@@ -55,6 +55,12 @@ public class AllocationController {
         return service.toResponse(service.setLots(id, body.lotIds()));
     }
 
+    @GetMapping("/commission-candidates")
+    @PreAuthorize("hasAuthority('ALLOCATION_MANAGE')")
+    public List<CommissionCandidate> commissionCandidates() {
+        return service.commissionCandidates();
+    }
+
     @GetMapping("/{id}/commission")
     @PreAuthorize("hasAuthority('ALLOCATION_READ_ALL')")
     public List<CommissionMember> commission(@PathVariable Long id) {
@@ -118,7 +124,7 @@ public class AllocationController {
 
     @GetMapping("/{id}/minutes")
     @PreAuthorize("hasAuthority('ALLOCATION_READ_ALL')")
-    public List<MinutesResponse> minutes(@PathVariable Long id) {
+    public List<PvResponse> minutes(@PathVariable Long id) {
         return service.minutesResponses(id);
     }
 
@@ -150,9 +156,9 @@ public class AllocationController {
     @PostMapping("/{id}/minutes")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ALLOCATION_MANAGE')")
-    public MinutesResponse generateMinutes(@PathVariable Long id) {
+    public PvResponse generateMinutes(@PathVariable Long id) {
         AllocationMinutes m = service.generateMinutes(id, CurrentUserProvider.require());
-        return new MinutesResponse(m.getId(), m.getVersionNo(), m.getDocumentId(), m.getStatus(), m.getGeneratedAt(),
+        return new PvResponse(m.getId(), m.getVersionNo(), m.getDocumentId(), m.getStatus(), m.getGeneratedAt(),
                 m.getValidatedAt());
     }
 
@@ -199,6 +205,13 @@ public class AllocationController {
     @GetMapping("/me")
     public List<MemberCampaignView> mine() {
         return service.memberView(CurrentUserProvider.requireMemberId());
+    }
+
+    @GetMapping("/{id}/member-verification")
+    @PreAuthorize("hasAuthority('SELF_SERVICE')")
+    @Operation(summary = "Recalcul du tirage par un membre, après publication des résultats")
+    public DrawVerification verifyAsMember(@PathVariable Long id) {
+        return service.verifyForMember(id);
     }
 
     @PostMapping("/{id}/apply")

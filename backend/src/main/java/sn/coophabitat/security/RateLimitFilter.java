@@ -27,9 +27,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String ip = ClientInfo.ip(request);
         int max = 0;
         String bucket = null;
-        if (path.startsWith("/api/v1/auth/")) {
-            bucket = "auth";
-            max = 30;
+        // Les identifiants sont protégés par IP ici et par compte (verrouillage après échecs) dans AuthService.
+        // Le plafond reste large car plusieurs membres partagent souvent la même adresse IP (NAT des opérateurs mobiles).
+        if (path.equals("/api/v1/auth/login") || path.startsWith("/api/v1/auth/password-reset")
+                || path.equals("/api/v1/auth/invitation/accept")) {
+            bucket = "credentials";
+            max = 20;
+        } else if (path.startsWith("/api/v1/auth/")) {
+            bucket = "session";
+            max = 240;
         } else if (path.startsWith("/api/v1/public/receipts")) {
             bucket = "verify";
             max = 20;

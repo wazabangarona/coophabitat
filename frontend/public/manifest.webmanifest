@@ -1,0 +1,10 @@
+{
+  "name": "CoopHabitat",
+  "short_name": "CoopHabitat",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f5f1",
+  "theme_color": "#0f5c4d",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

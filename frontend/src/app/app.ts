@@ -1,12 +1,10 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { DialogHost, ToastHost } from './ui/components';
 
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.scss',
-  templateUrl: './app.html',
+  imports: [RouterOutlet, ToastHost, DialogHost],
+  template: `<router-outlet /><app-toasts /><app-dialog-host />`,
 })
-export class App {
-  protected readonly title = signal('frontend');
-}
+export class App {}

@@ -4,7 +4,9 @@ import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.beans.factory.annotation.Autowired;
 import sn.coophabitat.security.AuthController;
+import sn.coophabitat.security.RateLimiter;
 import sn.coophabitat.security.UserAccount;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -15,6 +17,30 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Authentification : messages génériques, verrouillage, rotation des jetons de rafraîchissement, contrôle d'accès. */
 class AuthIT extends IntegrationTest {
+
+    @Autowired RateLimiter limiter;
+
+    @org.junit.jupiter.api.AfterEach
+    void resetLimiter() {
+        limiter.reset();
+    }
+
+    @Test
+    void credentialEndpointsAreThrottledButSessionRenewalIsNot() throws Exception {
+        limiter.reset();
+        // Adresses différentes : on mesure le plafond par IP, pas le verrouillage par compte (10 essais / 15 min).
+        for (int i = 0; i < 20; i++) {
+            mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"inconnu" + i + "@test.invalid\",\"password\":\"mauvais-mot-de-passe\"}"))
+                    .andExpect(status().isUnauthorized());
+        }
+        mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"autre@test.invalid\",\"password\":\"mauvais-mot-de-passe\"}"))
+                .andExpect(status().isTooManyRequests());
+        // Le renouvellement de session (sans cookie ici) relève d'un autre plafond : il n'est pas bloqué.
+        mvc.perform(post("/api/v1/auth/refresh").header(AuthController.CSRF_HEADER, "CoopHabitat"))
+                .andExpect(status().isUnauthorized());
+    }
 
     private MvcResult login(String email, String password, String ip) throws Exception {
         return mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -76,7 +102,9 @@ class AuthIT extends IntegrationTest {
         mvc.perform(get("/api/v1/members").header("Authorization", "Bearer jeton.invalide.xyz")).andExpect(status().isUnauthorized());
         String memberToken = fx.token(fx.user(null, "MEMBRE"));
         mvc.perform(get("/api/v1/members").header("Authorization", bearer(memberToken))).andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/finance/summary").header("Authorization", bearer(memberToken))).andExpect(status().isForbidden());
+        // La synthèse financière agrégée est publique pour les membres (transparence) ; le grand livre ne l'est pas.
+        mvc.perform(get("/api/v1/finance/summary").header("Authorization", bearer(memberToken))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/finance/entries").header("Authorization", bearer(memberToken))).andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/audit").header("Authorization", bearer(memberToken))).andExpect(status().isForbidden());
         // L'administrateur technique n'a aucun droit financier.
         String adminToken = fx.token(fx.user(null, "ADMINISTRATEUR_TECHNIQUE"));

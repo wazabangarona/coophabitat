@@ -51,8 +51,9 @@ public class FinanceController {
 
     // ---------------------------------------------------------------- transparence
 
+    /** Agrégats sans donnée individuelle : consultables par chaque membre au titre de la transparence. */
     @GetMapping("/summary")
-    @PreAuthorize("hasAuthority('ACCOUNTING_READ')")
+    @PreAuthorize("hasAuthority('ACCOUNTING_READ') or hasAuthority('SELF_SERVICE')")
     @Operation(summary = "Synthèse : soldes comptables, soldes déclarés, paiements confirmés, en attente et simulés")
     public TransparencySummary summary(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
         return transparency.summary(asOf);
