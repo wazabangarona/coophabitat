@@ -250,7 +250,8 @@ export class Distribution {
 @Component({
   selector: 'app-photo',
   template: `
-    <figure class="photo" [class]="extraClass()" [class.plan]="photo()?.kind === 'plan'">
+    <figure class="photo" [class]="extraClass()" [class.whole]="photo()?.kind === 'plan' || photo()?.kind === 'maquette'"
+      [class.plan]="photo()?.kind === 'plan'">
       @if (photo(); as p) {
         @if (!failed()) {
           <picture>
@@ -259,7 +260,7 @@ export class Distribution {
               [attr.loading]="priority() ? 'eager' : 'lazy'" [attr.fetchpriority]="priority() ? 'high' : null" decoding="async"
               [style.object-position]="p.focus ?? '50% 50%'" (error)="failed.set(true)" />
           </picture>
-          <figcaption>{{ p.kind === 'plan' ? 'Plan d’illustration' : 'Image d’illustration' }} · {{ p.credit }}</figcaption>
+          <figcaption>{{ p.kind === 'plan' ? 'Plan d’illustration' : p.kind === 'maquette' ? 'Maquette d’illustration' : 'Image d’illustration' }} · {{ p.credit }}</figcaption>
         }
       }
       @if (!photo() || failed()) {

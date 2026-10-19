@@ -295,6 +295,8 @@ tr.sub td { background: var(--c-surface-sunken); }
 /* ---------- Photographies ---------- */
 app-photo { display: block; min-width: 0; }
 .photo { position: relative; margin: 0; overflow: hidden; border-radius: var(--r-xl); background: var(--c-surface-2); isolation: isolate; }
+.photo picture { display: contents; }
+.photo:not(.whole) img { position: absolute; inset: 0; }
 .photo img { width: 100%; height: 100%; object-fit: cover; }
 .photo figcaption, .photo .photo-tag { position: absolute; left: var(--sp-3); bottom: var(--sp-3); z-index: 1; display: inline-flex; gap: 6px; align-items: center;
   padding: 3px 8px; border-radius: var(--r-sm); background: rgb(250 250 247 / 88%); color: #3e4744; font-size: var(--fs-2xs); letter-spacing: 0.02em; line-height: 1.5; max-width: calc(100% - 1.5rem); }
@@ -378,7 +380,8 @@ a.lot-card:hover { box-shadow: var(--sh-2); border-color: var(--c-border-strong)
 /* Panneau d'action d'une procédure : distinct des panneaux d'information. */
 .card.next-step { border-color: color-mix(in srgb, var(--c-ink) 22%, var(--c-border)); box-shadow: inset 3px 0 0 var(--c-ink), var(--sh-2); }
 .card.next-step h2 { display: flex; align-items: center; gap: var(--sp-2); }
-// Plan d'architecte : affiché en entier sur fond blanc, jamais recadré.
-.photo.plan { background: #fff; border: var(--line); aspect-ratio: auto !important; }
-.photo.plan img { height: auto; object-fit: contain; }
-.photo.plan figcaption { position: static; display: block; max-width: none; border-radius: 0; border-top: var(--line); background: var(--c-surface-2); padding: 6px 12px; }
+// Plan d'architecte ou maquette d'écrans : affiché en entier, jamais recadré (fond blanc pour un plan).
+.photo.whole { border: var(--line); aspect-ratio: auto !important; }
+.photo.plan { background: #fff; }
+.photo.whole img { height: auto; object-fit: contain; }
+.photo.whole figcaption { position: static; display: block; max-width: none; border-radius: 0; border-top: var(--line); background: var(--c-surface-2); padding: 6px 12px; }

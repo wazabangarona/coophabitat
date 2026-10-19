@@ -17,13 +17,43 @@ export interface PhotoCredit {
   license: string;
   /** Point focal pour object-position (ex. « 50% 40% »). */
   focus?: string;
-  /** « plan » pour un dessin d'architecte : affiché en entier (sans recadrage) et légendé comme plan d'illustration. */
-  kind?: 'photo' | 'plan';
+  /**
+   * « plan » (dessin d'architecte) et « maquette » (écrans d'interface) sont affichés en entier, sans recadrage, et
+   * légendés comme tels ; une photographie est recadrée pour remplir son emplacement.
+   */
+  kind?: 'photo' | 'plan' | 'maquette';
   width: number;
   height: number;
 }
 
 export const PHOTOS: Record<string, PhotoCredit> = {
+  'chantier': {
+    alt: 'Chantier de maisons à étage en gros œuvre au coucher du soleil, deux techniciens en gilet consultant un plan',
+    author: 'Visuel fourni par la coopérative',
+    credit: 'ne représente pas un chantier de la coopérative',
+    license: 'Usage autorisé par la coopérative pour illustrer ce site',
+    focus: '40% 55%',
+    width: 1536,
+    height: 1024,
+  },
+  'portail-membre': {
+    alt: 'Une membre consulte son espace sur un ordinateur portable, à côté d’aperçus des rubriques documents, rapports et comptes, et espace personnel',
+    author: 'Visuel fourni par la coopérative',
+    credit: 'noms, dates et documents fictifs',
+    license: 'Usage autorisé par la coopérative pour illustrer ce site. Les écrans montrés sont une maquette, pas des données réelles.',
+    kind: 'maquette',
+    width: 1024,
+    height: 595,
+  },
+  'villa-crepuscule': {
+    alt: 'Maison contemporaine à étage éclairée au crépuscule, avec portail, palmiers et jardin tropical',
+    author: 'Visuel fourni par la coopérative',
+    credit: 'visuel fourni par la coopérative',
+    license: 'Usage autorisé par la coopérative pour illustrer ce site',
+    focus: '45% 55%',
+    width: 1536,
+    height: 1024,
+  },
   'plan-rdc': {
     alt: 'Plan d’architecte d’une maison de plain-pied : trois chambres, séjour, cuisine, garage, terrasse et piscine, avec tableau des surfaces',
     author: 'Plan fourni par la coopérative',
@@ -48,7 +78,7 @@ export const PHOTOS: Record<string, PhotoCredit> = {
 export const SLOTS = {
   hero: 'plan-rdc' as string | null,
   contributions: 'villas-palmiers' as string | null,
-  projects: null as string | null,
-  living: null as string | null,
-  auth: 'villas-palmiers' as string | null,
+  projects: 'chantier' as string | null,
+  living: 'portail-membre' as string | null,
+  auth: 'villa-crepuscule' as string | null,
 };
