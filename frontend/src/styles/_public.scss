@@ -188,3 +188,5 @@
 
 // La mention « Image d'illustration » reste visible : en haut du visuel, hors de la note du hero et du pli.
 .hero-visual .photo figcaption, .auth-visual .photo figcaption { top: var(--sp-3); bottom: auto; }
+// Un plan dans le hero : la note passe sous le visuel pour ne masquer aucune partie du dessin.
+.hero-visual:has(.photo.plan) .hero-note { position: static; margin-top: var(--sp-4); max-width: none; box-shadow: var(--sh-1); }

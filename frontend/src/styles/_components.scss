@@ -378,3 +378,7 @@ a.lot-card:hover { box-shadow: var(--sh-2); border-color: var(--c-border-strong)
 /* Panneau d'action d'une procédure : distinct des panneaux d'information. */
 .card.next-step { border-color: color-mix(in srgb, var(--c-ink) 22%, var(--c-border)); box-shadow: inset 3px 0 0 var(--c-ink), var(--sh-2); }
 .card.next-step h2 { display: flex; align-items: center; gap: var(--sp-2); }
+// Plan d'architecte : affiché en entier sur fond blanc, jamais recadré.
+.photo.plan { background: #fff; border: var(--line); aspect-ratio: auto !important; }
+.photo.plan img { height: auto; object-fit: contain; }
+.photo.plan figcaption { position: static; display: block; max-width: none; border-radius: 0; border-top: var(--line); background: var(--c-surface-2); padding: 6px 12px; }

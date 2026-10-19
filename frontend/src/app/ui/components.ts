@@ -7,7 +7,7 @@ import { label, tone } from '../core/labels';
 import { SIMULATION_NOTICE } from '../core/public-info';
 import { Toasts } from '../core/toast';
 import { ICONS } from './icons-data';
-import { PHOTOS, SLOTS } from './photos';
+import { PHOTOS, PhotoCredit, SLOTS } from './photos';
 import { formatMoney } from './pipes';
 
 /** Icône vectorielle (Lucide). Purement décorative : le texte voisin porte toujours le sens. */
@@ -250,7 +250,7 @@ export class Distribution {
 @Component({
   selector: 'app-photo',
   template: `
-    <figure class="photo" [class]="extraClass()">
+    <figure class="photo" [class]="extraClass()" [class.plan]="photo()?.kind === 'plan'">
       @if (photo(); as p) {
         @if (!failed()) {
           <picture>
@@ -259,7 +259,7 @@ export class Distribution {
               [attr.loading]="priority() ? 'eager' : 'lazy'" [attr.fetchpriority]="priority() ? 'high' : null" decoding="async"
               [style.object-position]="p.focus ?? '50% 50%'" (error)="failed.set(true)" />
           </picture>
-          <figcaption>Image d’illustration · {{ p.credit }}</figcaption>
+          <figcaption>{{ p.kind === 'plan' ? 'Plan d’illustration' : 'Image d’illustration' }} · {{ p.credit }}</figcaption>
         }
       }
       @if (!photo() || failed()) {
@@ -288,7 +288,7 @@ export class Photo {
   readonly extraClass = input('');
   protected readonly failed = signal(false);
   protected readonly key = computed(() => (SLOTS as Record<string, string | null>)[this.slot()] ?? this.slot());
-  protected readonly photo = computed(() => PHOTOS[this.key()] ?? null);
+  protected readonly photo = computed<PhotoCredit | null>(() => PHOTOS[this.key()] ?? null);
   protected readonly srcset = computed(() =>
     [800, 1400, 2000].map((w) => `/images/${this.key()}-${w}.webp ${w}w`).join(', '),
   );
