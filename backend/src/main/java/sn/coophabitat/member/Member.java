@@ -43,7 +43,7 @@ public class Member {
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
 
-    @Column(name = "is_demo")
+    @Column(name = "is_demo", insertable = false, updatable = false) // positionné uniquement par le chargeur de démonstration
     private boolean demo;
 
     @Version

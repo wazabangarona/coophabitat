@@ -49,6 +49,6 @@ public class Expense {
     @Version
     private long version;
 
-    @Column(name = "is_demo")
+    @Column(name = "is_demo", insertable = false, updatable = false) // positionné uniquement par le chargeur de démonstration
     private boolean demo;
 }
