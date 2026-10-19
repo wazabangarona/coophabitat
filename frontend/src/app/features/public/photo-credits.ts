@@ -11,10 +11,10 @@ import { PHOTOS } from '../../ui/photos';
       subtitle="Les photographies du site sont des illustrations. Elles ne représentent ni les terrains, ni les logements, ni les chantiers de la coopérative." />
     @if (credits.length) {
       <ul class="doc-list">
-        @for (c of credits; track c.source) {
+        @for (c of credits; track c.alt) {
           <li><div class="doc-body"><strong>{{ c.alt }}</strong>
-            <p class="muted small">Photographie : {{ c.author }} · {{ c.license }} ·
-              <a [href]="c.source" target="_blank" rel="noopener noreferrer">page de la photographie</a></p></div></li>
+            <p class="muted small">{{ c.author }} · {{ c.license }}
+              @if (c.source) { · <a [href]="c.source" target="_blank" rel="noopener noreferrer">page de la photographie</a> }</p></div></li>
         }
       </ul>
     } @else {

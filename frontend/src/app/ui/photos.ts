@@ -10,8 +10,10 @@ export interface PhotoCredit {
   /** Texte alternatif décrivant ce que montre réellement la photographie. */
   alt: string;
   author: string;
-  /** Page de la photographie chez la banque d'images. */
-  source: string;
+  /** Mention courte affichée sous l'image (ex. « Auteur / Unsplash »). */
+  credit: string;
+  /** Page de la photographie chez la banque d'images, si elle en vient. */
+  source?: string;
   license: string;
   /** Point focal pour object-position (ex. « 50% 40% »). */
   focus?: string;
@@ -19,13 +21,23 @@ export interface PhotoCredit {
   height: number;
 }
 
-export const PHOTOS: Record<string, PhotoCredit> = {};
+export const PHOTOS: Record<string, PhotoCredit> = {
+  'villas-palmiers': {
+    alt: 'Villas contemporaines à étage autour d’une piscine, entourées de palmiers, au coucher du soleil',
+    author: 'Visuel fourni par la coopérative',
+    credit: 'visuel fourni par la coopérative',
+    license: 'Usage autorisé par la coopérative pour illustrer ce site',
+    focus: '50% 60%',
+    width: 1122,
+    height: 1402,
+  },
+};
 
 /** Emplacements de l'application et photographie retenue pour chacun (ou null tant qu'aucune n'est disponible). */
 export const SLOTS = {
-  hero: null as string | null,
+  hero: 'villas-palmiers' as string | null,
   contributions: null as string | null,
   projects: null as string | null,
   living: null as string | null,
-  auth: null as string | null,
+  auth: 'villas-palmiers' as string | null,
 };

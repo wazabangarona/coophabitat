@@ -259,7 +259,7 @@ export class Distribution {
               [attr.loading]="priority() ? 'eager' : 'lazy'" [attr.fetchpriority]="priority() ? 'high' : null" decoding="async"
               [style.object-position]="p.focus ?? '50% 50%'" (error)="failed.set(true)" />
           </picture>
-          <figcaption>Image d’illustration · {{ p.author }} / Unsplash</figcaption>
+          <figcaption>Image d’illustration · {{ p.credit }}</figcaption>
         }
       }
       @if (!photo() || failed()) {

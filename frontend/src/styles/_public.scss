@@ -185,3 +185,6 @@
 @media (max-width: #{$bp-md - 1}) {
   .site-main .photo:has(> .photo-fallback) { display: none; }
 }
+
+// La mention « Image d'illustration » reste visible : en haut du visuel, hors de la note du hero et du pli.
+.hero-visual .photo figcaption, .auth-visual .photo figcaption { top: var(--sp-3); bottom: auto; }
