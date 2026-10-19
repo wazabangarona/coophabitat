@@ -340,6 +340,18 @@ public class DemoDataLoader implements ApplicationRunner {
         expenses.submit(expense.getId(), treasurer);
         jdbc.update("UPDATE expense SET is_demo = TRUE WHERE id = ?", expense.getId());
 
+        // Textes fondateurs fictifs publiés aux membres par la secrétaire, pour illustrer la bibliothèque documentaire.
+        act(secretary);
+        for (var text : List.of(
+                new String[]{"Statuts (démonstration)", "STATUTS", "DEMO-STATUTS-01", "statuts-demo.pdf"},
+                new String[]{"Règlement intérieur (démonstration)", "REGLEMENT", "DEMO-REGLEMENT-01", "reglement-interieur-demo.pdf"})) {
+            byte[] content = PdfSupport.build(settings.current(), text[0], text[2], Instant.now(clock), doc -> PdfSupport.paragraph(doc,
+                    "Document fictif généré pour la démonstration. Il ne reproduit les textes d'aucune coopérative réelle "
+                            + "et n'a aucune valeur juridique."));
+            documents.store(new DocumentService.NewDocument(text[0], DocumentCategory.valueOf(text[1]),
+                    DocumentVisibility.MEMBRES, null, null, null, text[3], "application/pdf", content, true, true));
+        }
+
         // Rapport financier de démonstration : généré par le trésorier, publié aux membres par la présidente.
         var report = reports.generate(new ReportRequest(FinancialReport.Type.PERIODE, today.minusMonths(5).withDayOfMonth(1),
                 today), treasurer);

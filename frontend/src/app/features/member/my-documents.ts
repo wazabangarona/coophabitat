@@ -30,7 +30,8 @@ export const CATEGORIES = ['STATUTS', 'REGLEMENT', 'CONVOCATION', 'COMPTE_RENDU_
             <div class="doc-row">
               <span class="doc-icon"><app-icon [name]="d.category === 'RECU' ? 'receipt' : 'file-text'" /></span>
               <div class="doc-body"><strong>{{ d.title }}</strong>
-                <p class="muted small">{{ d.category | label }} · {{ d.visibility | label }} · {{ (d.publishedAt || d.createdAt) | day }} · {{ d.sizeBytes | bytes }}</p></div>
+                <p class="muted small">{{ d.category | label }} · {{ d.visibility | label }} · {{ (d.publishedAt || d.createdAt) | day }} · {{ d.sizeBytes | bytes }}</p>
+                @if (d.sha256) { <p class="doc-hash" title="Empreinte SHA-256 du fichier, fixée à son enregistrement">SHA-256 : {{ d.sha256 }}</p> }</div>
             </div>
             <button type="button" class="btn small" (click)="open(d)"><app-icon name="external-link" />Ouvrir</button>
           </li>

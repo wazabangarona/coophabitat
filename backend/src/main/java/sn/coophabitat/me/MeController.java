@@ -16,6 +16,7 @@ import sn.coophabitat.common.Downloads;
 import sn.coophabitat.common.Json;
 import sn.coophabitat.contribution.ContributionDtos;
 import sn.coophabitat.contribution.ObligationService;
+import sn.coophabitat.contribution.PlanService;
 import sn.coophabitat.member.*;
 import sn.coophabitat.member.MemberDtos.ContactUpdateRequest;
 import sn.coophabitat.member.MemberDtos.MemberResponse;
@@ -43,10 +44,11 @@ public class MeController {
     private final MembershipStatusHistoryRepository history;
     private final AdminService admin;
     private final AuditService audit;
+    private final PlanService plans;
 
     public MeController(MemberService members, ObligationService obligations, PaymentTransactionRepository transactions,
                         PaymentMapper paymentMapper, ReceiptRepository receipts, MembershipStatusHistoryRepository history,
-                        AdminService admin, AuditService audit) {
+                        AdminService admin, AuditService audit, PlanService plans) {
         this.members = members;
         this.obligations = obligations;
         this.transactions = transactions;
@@ -55,6 +57,7 @@ public class MeController {
         this.history = history;
         this.admin = admin;
         this.audit = audit;
+        this.plans = plans;
     }
 
     @GetMapping("/profile")
@@ -71,6 +74,16 @@ public class MeController {
     @GetMapping("/summary")
     public ContributionDtos.MemberFinancialSummary summary() {
         return obligations.summary(CurrentUserProvider.requireMemberId());
+    }
+
+    @GetMapping("/plan")
+    @Operation(summary = "Règles de son plan de cotisation (montant, échéance, délai de grâce, pénalités)")
+    public ResponseEntity<ContributionDtos.PlanResponse> plan() {
+        Long planId = members.get(CurrentUserProvider.requireMemberId()).getContributionPlanId();
+        if (planId == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(ContributionDtos.PlanResponse.of(plans.get(planId), 0));
     }
 
     @GetMapping("/obligations")

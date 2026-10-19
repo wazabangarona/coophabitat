@@ -1,7 +1,9 @@
 @use 'tokens' as *;
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+html { -webkit-text-size-adjust: 100%; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+  /* Les éléments atteints au clavier ou par ancre ne passent pas sous la barre supérieure collante. */
+  scroll-padding-top: calc(var(--topbar) + var(--sp-6)); }
 body {
   margin: 0;
   font-family: var(--font);

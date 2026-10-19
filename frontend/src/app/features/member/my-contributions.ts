@@ -1,8 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { LowerCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Api, newIdempotencyKey } from '../../core/api';
-import { IntentResponse, ObligationResponse, ProviderInfo } from '../../core/api-types';
+import { IntentResponse, ObligationResponse, PlanResponse, ProviderInfo } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Busy, Loader } from '../../core/loader';
 import { OfflineSnapshot } from '../../core/offline';
@@ -13,9 +14,30 @@ import { DayPipe, LabelPipe, MoneyPipe } from '../../ui/pipes';
 
 @Component({
   selector: 'app-my-contributions',
-  imports: [FormsModule, PageHeader, StateView, Badge, MoneyPipe, DayPipe, LabelPipe],
+  imports: [FormsModule, LowerCasePipe, PageHeader, StateView, Badge, MoneyPipe, DayPipe, LabelPipe],
   template: `
     <app-page-header title="Mes cotisations" subtitle="Échéances, pénalités et montants restant dus, calculés par le serveur." />
+
+    @if (plan.data(); as p) {
+      <details class="card">
+        <summary>Règles de calcul de mon plan « {{ p.name }} »</summary>
+        <dl class="dl">
+          <dt>Montant</dt><dd>{{ p.amount | money }} par échéance ({{ p.periodicity | label | lowercase }})</dd>
+          <dt>Échéance</dt><dd>Le {{ p.dueDayOfMonth }} du mois</dd>
+          <dt>Délai de grâce</dt><dd>{{ p.graceDays }} jour(s) après l’échéance</dd>
+          <dt>Pénalité de retard</dt>
+          <dd>
+            @switch (p.penaltyMethod) {
+              @case ('FORFAIT') { {{ p.penaltyValue | money }}, appliquée une seule fois le lendemain du délai de grâce si l’échéance n’est pas soldée. }
+              @case ('POURCENTAGE_MENSUEL') { {{ p.penaltyValue }} % du principal restant dû, appliqué le lendemain du délai de grâce puis chaque mois tant que l’échéance n’est pas soldée. }
+              @default { Aucune pénalité. }
+            }
+            @if (p.penaltyCap && p.penaltyMethod !== 'AUCUNE') { <br />Plafond : {{ p.penaltyCap | money }} de pénalités par échéance. }
+          </dd>
+          @if (p.adoptedReference) { <dt>Adopté par</dt><dd>{{ p.adoptedReference }}</dd> }
+        </dl>
+      </details>
+    }
 
     <app-state [loading]="list.loading()" [error]="list.error()" [empty]="!list.data()?.length"
       emptyText="Aucune échéance n’a encore été générée pour vous." (retry)="list.reload()">
@@ -82,6 +104,8 @@ export class MyContributions implements OnInit {
   private readonly auth = inject(Auth);
   protected readonly offline = inject(OfflineSnapshot);
   protected readonly list = new Loader<ObligationResponse[]>();
+  /** Règles du plan du membre (absent si aucun plan ne lui est rattaché). */
+  protected readonly plan = new Loader<PlanResponse | null>();
   protected readonly providers = new Loader<ProviderInfo[]>((ps) => {
     const first = ps.find((p) => p.available && !p.simulated) ?? ps.find((p) => p.available);
     this.provider = first?.code ?? '';
@@ -97,6 +121,7 @@ export class MyContributions implements OnInit {
 
   ngOnInit(): void {
     this.list.load(() => this.api.get<ObligationResponse[]>('/me/obligations'));
+    this.plan.load(() => this.api.get<PlanResponse | null>('/me/plan'));
     this.providers.load(() => this.api.get<ProviderInfo[]>('/payments/providers'));
     void this.auth;
   }
