@@ -1,0 +1,18 @@
+# Build
+backend/target/
+frontend/dist/
+frontend/.angular/
+frontend/node_modules/
+frontend/coverage/
+node_modules/
+# Données locales et secrets
+.env
+*.env.local
+data/
+backend/data/
+*.log
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store

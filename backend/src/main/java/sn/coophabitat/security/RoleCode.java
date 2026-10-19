@@ -1,0 +1,5 @@
+package sn.coophabitat.security;
+
+public enum RoleCode {
+    PRESIDENT, TRESORIER, SECRETAIRE, MEMBRE, AGENT_DE_GESTION, AUDITEUR, ADMINISTRATEUR_TECHNIQUE
+}
