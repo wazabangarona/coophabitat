@@ -15,8 +15,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     Optional<UserAccount> findByMemberId(Long memberId);
 
-    @Query("select u from UserAccount u where (:q is null or lower(u.email) like lower(concat('%', :q, '%')) "
-            + "or lower(u.displayName) like lower(concat('%', :q, '%'))) order by u.displayName")
+    @Query("select u from UserAccount u where (:q is null or lower(u.email) like lower(concat('%', cast(:q as string), '%')) "
+            + "or lower(u.displayName) like lower(concat('%', cast(:q as string), '%'))) order by u.displayName")
     Page<UserAccount> search(String q, Pageable pageable);
 
     @Query("select distinct u from UserAccount u join u.roles r where r in :roles and u.enabled = true")

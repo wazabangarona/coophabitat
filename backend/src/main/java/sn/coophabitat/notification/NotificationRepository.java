@@ -29,4 +29,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     List<Object[]> statsByChannelAndStatus();
 
     List<Notification> findByRelatedTypeAndRelatedId(String relatedType, Long relatedId);
+
+    long countByStatus(NotificationStatus status);
 }

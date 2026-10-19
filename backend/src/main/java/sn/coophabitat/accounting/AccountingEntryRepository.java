@@ -14,7 +14,7 @@ public interface AccountingEntryRepository extends JpaRepository<AccountingEntry
 
     @Query("""
             select e from AccountingEntry e
-            where (:from is null or e.entryDate >= :from) and (:to is null or e.entryDate <= :to)
+            where (cast(:from as LocalDate) is null or e.entryDate >= :from) and (cast(:to as LocalDate) is null or e.entryDate <= :to)
               and (:simulated is null or e.simulated = :simulated)
             order by e.entryDate desc, e.id desc
             """)

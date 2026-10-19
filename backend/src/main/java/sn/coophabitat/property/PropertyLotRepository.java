@@ -28,8 +28,8 @@ public interface PropertyLotRepository extends JpaRepository<PropertyLot, Long> 
             where (:projectId is null or l.projectId = :projectId)
               and (:status is null or l.status = :status)
               and (:type is null or l.lotType = :type)
-              and (:q is null or lower(l.reference) like lower(concat('%', :q, '%'))
-                   or lower(l.commune) like lower(concat('%', :q, '%')))
+              and (:q is null or lower(l.reference) like lower(concat('%', cast(:q as string), '%'))
+                   or lower(l.commune) like lower(concat('%', cast(:q as string), '%')))
             order by l.reference
             """)
     Page<PropertyLot> search(Long projectId, LotStatus status, LotType type, String q, Pageable pageable);

@@ -25,10 +25,10 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     @Query("""
             select m from Member m
-            where (:q is null or lower(m.lastName) like lower(concat('%', :q, '%'))
-                   or lower(m.firstName) like lower(concat('%', :q, '%'))
-                   or lower(m.memberNumber) like lower(concat('%', :q, '%'))
-                   or lower(m.email) like lower(concat('%', :q, '%')))
+            where (:q is null or lower(m.lastName) like lower(concat('%', cast(:q as string), '%'))
+                   or lower(m.firstName) like lower(concat('%', cast(:q as string), '%'))
+                   or lower(m.memberNumber) like lower(concat('%', cast(:q as string), '%'))
+                   or lower(m.email) like lower(concat('%', cast(:q as string), '%')))
               and (:status is null or m.status = :status)
               and (:type is null or m.memberType = :type)
             """)
