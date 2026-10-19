@@ -179,3 +179,9 @@
   .auth { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .auth-visual { display: block; padding: var(--sp-4) var(--sp-4) var(--sp-4) 0; }
 }
+
+// Sans photographie disponible, le motif de remplacement n'apporte rien sur petit écran : on le retire pour garder
+// un défilement court (le texte et les actions restent inchangés).
+@media (max-width: #{$bp-md - 1}) {
+  .site-main .photo:has(> .photo-fallback) { display: none; }
+}
