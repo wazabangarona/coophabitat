@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import tools.jackson.core.JacksonException;
 
 import java.time.Instant;
 import java.util.List;
@@ -66,9 +67,25 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "PARAMETRE_MANQUANT", "Paramètre requis manquant : " + ex.getParameterName(), req, List.of());
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})
-    ResponseEntity<ApiError> badRequest(Exception ex, HttpServletRequest req) {
-        return build(HttpStatus.BAD_REQUEST, "REQUETE_INVALIDE", "Requête invalide ou incomplète", req, List.of());
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> badRequest(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "REQUETE_INVALIDE", "Requête invalide ou incomplète", req,
+                List.of(new ApiError.FieldError(ex.getName(), "Valeur invalide")));
+    }
+
+    /** Corps JSON illisible : le champ en cause est indiqué (sans recopier la valeur reçue). */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiError> unreadable(HttpMessageNotReadableException ex, HttpServletRequest req) {
+        String field = null;
+        for (Throwable t = ex; t != null && field == null; t = t.getCause()) {
+            if (t instanceof JacksonException je && !je.getPath().isEmpty()) {
+                field = je.getPath().stream().map(r -> r.getPropertyName() != null ? r.getPropertyName() : "[" + r.getIndex() + "]")
+                        .collect(java.util.stream.Collectors.joining("."));
+            }
+        }
+        return build(HttpStatus.BAD_REQUEST, "REQUETE_INVALIDE", field == null ? "Requête invalide ou incomplète"
+                        : "Champ « " + field + " » manquant ou invalide", req,
+                field == null ? List.of() : List.of(new ApiError.FieldError(field, "Valeur manquante ou de type incorrect")));
     }
 
     @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})

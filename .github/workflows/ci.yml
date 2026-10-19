@@ -30,6 +30,9 @@ jobs:
           cache: maven
       # Testcontainers lance PostgreSQL 16 via le Docker du runner.
       - run: mvn -B verify
+      - name: Vérificateur indépendant du tirage (même vecteur de référence que DrawEngineTest)
+        working-directory: .
+        run: python3 -m unittest discover tools
       - uses: actions/upload-artifact@v4
         if: always()
         with:
