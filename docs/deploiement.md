@@ -69,7 +69,7 @@ docker compose logs backend | grep "lien d'activation"   # sans SMTP : lien uniq
 
 ```
 coop.exemple.sn {
-    reverse_proxy 127.0.0.1:8080
+    reverse_proxy 127.0.0.1:8090
 }
 ```
 

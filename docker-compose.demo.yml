@@ -14,9 +14,11 @@ services:
       COOPHABITAT_JWT_SECRET: ${COOPHABITAT_JWT_SECRET:-demonstration-locale-uniquement-0123456789abcdef}
       # Démonstration servie en HTTP sur localhost : le cookie de session ne peut pas être « Secure ».
       COOPHABITAT_COOKIE_SECURE: "false"
-      COOPHABITAT_FRONTEND_URL: http://localhost:${COOPHABITAT_HTTP_PORT:-8080}
-      COOPHABITAT_CORS_ORIGINS: http://localhost:${COOPHABITAT_HTTP_PORT:-8080}
+      COOPHABITAT_FRONTEND_URL: http://localhost:${COOPHABITAT_HTTP_PORT:-8090}
+      COOPHABITAT_CORS_ORIGINS: http://localhost:${COOPHABITAT_HTTP_PORT:-8090}
       COOPHABITAT_PAYMENT_MOCK_ENABLED: "true"
       COOPHABITAT_PAYMENT_MOCK_SECRET: ${COOPHABITAT_PAYMENT_MOCK_SECRET:-simulation-locale}
       COOPHABITAT_DEMO_ENABLED: "true"
-      COOPHABITAT_DEMO_PASSWORD: ${COOPHABITAT_DEMO_PASSWORD:?définir COOPHABITAT_DEMO_PASSWORD (mot de passe des comptes fictifs)}
+      # Obligatoire (12 caractères minimum) : le serveur refuse de démarrer sinon. Pas de « :? » ici, pour que
+      # « down » et « ps » restent utilisables sans le redéfinir.
+      COOPHABITAT_DEMO_PASSWORD: ${COOPHABITAT_DEMO_PASSWORD:-}

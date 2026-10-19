@@ -42,8 +42,11 @@ tableaux de bord par rôle et consultation hors ligne partielle.
 
 ```bash
 COOPHABITAT_DEMO_PASSWORD='Demo-CoopHabitat-2026' scripts/demarrer-demo.sh
-# puis ouvrir http://localhost:8080 et se connecter avec presidence@demo.coophabitat.invalid
+# puis ouvrir http://localhost:8090 et se connecter avec presidence@demo.coophabitat.invalid
 ```
+
+Le site est publié sur le port **8090** par défaut. S'il est occupé, le script prend le premier port libre
+suivant et affiche l'adresse à ouvrir ; pour imposer un port : `COOPHABITAT_HTTP_PORT=9000 scripts/demarrer-demo.sh`.
 
 ---
 
@@ -214,11 +217,11 @@ n'est jamais une preuve de paiement. Détails : [docs/paiements.md](docs/paiemen
 
 ```bash
 cp .env.example .env && nano .env                # secrets, adresse publique, administrateur initial
-docker compose up -d --build --wait               # db + backend + web (nginx), port 127.0.0.1:8080
+docker compose up -d --build --wait               # db + backend + web (nginx), port 127.0.0.1:8090
 docker compose logs backend | grep "lien d'activation"   # sans SMTP : lien unique du premier administrateur
 ```
 
-Placer un reverse proxy HTTPS (Caddy, Traefik, nginx + Let's Encrypt) devant le port 8080. Planifier
+Placer un reverse proxy HTTPS (Caddy, Traefik, nginx + Let's Encrypt) devant le port 8090. Planifier
 `scripts/backup.sh` chaque jour et copier les sauvegardes hors du serveur ; restauration :
 `scripts/restore.sh <dossier> --confirmer <nom_de_la_base>` (procédure vérifiée : voir docs/deploiement.md).
 

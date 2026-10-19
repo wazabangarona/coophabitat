@@ -324,7 +324,7 @@ flowchart LR
     U[Navigateurs<br/>ordinateur et mobile] -->|HTTPS 443| RP[Reverse proxy TLS<br/>Caddy / Traefik / nginx]
     WV[Wave] -->|webhook HTTPS| RP
     subgraph Hôte Docker
-      RP -->|127.0.0.1:8080| WEB[web<br/>nginx-unprivileged 1.28<br/>Angular + CSP]
+      RP -->|127.0.0.1:8090| WEB[web<br/>nginx-unprivileged 1.28<br/>Angular + CSP]
       WEB -->|réseau interne| BE[backend<br/>JRE 21, utilisateur non root<br/>sonde readiness]
       BE --> DB[(db<br/>postgres:16-alpine<br/>volume db-data)]
       BE --> VOL[(volume documents)]

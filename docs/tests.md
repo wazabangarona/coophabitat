@@ -84,7 +84,7 @@ parcours de paiement règle une échéance de `membre2` ; relancé sur la même 
 # Option 1 : contre la pile Docker de démonstration
 COOPHABITAT_DEMO_PASSWORD='Demo-CoopHabitat-2026' scripts/demarrer-demo.sh
 cd frontend && npx playwright install chromium     # une seule fois
-E2E_BASE_URL=http://localhost:8080 E2E_DEMO_PASSWORD='Demo-CoopHabitat-2026' npx playwright test
+E2E_BASE_URL=http://localhost:8090 E2E_DEMO_PASSWORD='Demo-CoopHabitat-2026' npx playwright test
 # pour recommencer : docker compose -f docker-compose.yml -f docker-compose.demo.yml down -v
 
 # Option 2 : contre le serveur de développement (section 6 du README, base vide) et ng serve

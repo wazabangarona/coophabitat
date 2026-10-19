@@ -118,7 +118,7 @@ scripts/restore.sh /chemin/sauvegardes/<dossier> --confirmer coophabitat
 
 | URL | Usage | Vérifiée |
 |---|---|---|
-| <http://localhost:8080> | Pile Docker (frontend + `/api`) | Oui, sur le port 8090 (`COOPHABITAT_HTTP_PORT=8090`, le 8080 étant pris par le serveur de développement) ; 8080 est la valeur par défaut |
+| <http://localhost:8090> | Pile Docker (frontend + `/api`) ; port modifiable par `COOPHABITAT_HTTP_PORT`, et `scripts/demarrer-demo.sh` prend le port libre suivant si 8090 est occupé | Oui |
 | <http://localhost:8080/api/v1/…> | API du serveur lancé directement | Oui |
 | <http://localhost:8080/swagger-ui.html> | Swagger, serveur lancé directement avec `COOPHABITAT_SWAGGER_ENABLED=true` | Oui (redirection 302 vers l'interface, contrat chargé) |
 | <http://localhost:4200> | Frontend en développement (`npm start`) | Oui |
