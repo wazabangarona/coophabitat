@@ -31,6 +31,7 @@ const MEMBER_NAV: NavItem[] = [
 
 const BUREAU_NAV: NavItem[] = [
   { path: '/bureau', label: 'Tableau de bord', icon: 'layout-dashboard', perms: ['DASHBOARD_BUREAU'], exact: true },
+  { path: '/bureau/adhesions', label: 'Demandes d’adhésion', icon: 'file-check', perms: ['MEMBER_READ_ALL'] },
   { path: '/bureau/membres', label: 'Membres', icon: 'users', perms: ['MEMBER_READ_ALL'] },
   { path: '/bureau/cotisations', label: 'Cotisations', icon: 'piggy-bank', perms: ['PLAN_READ'] },
   { path: '/bureau/paiements', label: 'Paiements', icon: 'credit-card', perms: ['PAYMENT_READ_ALL'] },

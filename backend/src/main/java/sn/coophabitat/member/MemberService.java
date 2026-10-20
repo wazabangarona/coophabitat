@@ -12,8 +12,11 @@ import sn.coophabitat.contribution.ContributionPlan;
 import sn.coophabitat.contribution.ContributionPlanRepository;
 import sn.coophabitat.contribution.PlanStatus;
 import sn.coophabitat.member.MemberDtos.*;
+import sn.coophabitat.notification.NotificationService;
 import sn.coophabitat.security.AuthService;
 import sn.coophabitat.security.CurrentUser;
+import sn.coophabitat.security.Permission;
+import sn.coophabitat.security.PermissionResolver;
 import sn.coophabitat.security.RoleCode;
 import sn.coophabitat.security.UserAccount;
 import sn.coophabitat.security.UserAccountRepository;
@@ -21,6 +24,7 @@ import sn.coophabitat.security.UserAccountRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,11 +40,14 @@ public class MemberService {
     private final AuthService auth;
     private final ReferenceGenerator references;
     private final AuditService audit;
+    private final NotificationService notifications;
+    private final PermissionResolver permissions;
     private final Clock clock;
 
     public MemberService(MemberRepository members, MembershipStatusHistoryRepository history,
                          ContributionPlanRepository plans, UserAccountRepository users, AuthService auth,
-                         ReferenceGenerator references, AuditService audit, Clock clock) {
+                         ReferenceGenerator references, AuditService audit, NotificationService notifications,
+                         PermissionResolver permissions, Clock clock) {
         this.members = members;
         this.history = history;
         this.plans = plans;
@@ -48,12 +55,14 @@ public class MemberService {
         this.auth = auth;
         this.references = references;
         this.audit = audit;
+        this.notifications = notifications;
+        this.permissions = permissions;
         this.clock = clock;
     }
 
     @Transactional(readOnly = true)
-    public Page<Member> search(String q, MemberStatus status, MemberType type, Pageable pageable) {
-        return members.search(q == null || q.isBlank() ? null : q.trim(), status, type, pageable);
+    public Page<Member> search(String q, MemberStatus status, MemberType type, boolean withoutPlan, Pageable pageable) {
+        return members.search(q == null || q.isBlank() ? null : q.trim(), status, type, withoutPlan, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -160,43 +169,227 @@ public class MemberService {
 
     /**
      * Changement de statut. La suspension ou la radiation n'efface ni l'historique ni les obligations financières.
-     * La radiation désactive le compte de connexion et révoque ses sessions.
+     * La radiation (comme le refus d'une demande) désactive le compte de connexion et révoque ses sessions.
+     * L'approbation et le refus d'une demande en attente suivent les mêmes règles que {@link #approve} et {@link #reject}.
      */
     @Transactional
     public Member changeStatus(Long id, StatusChangeRequest r, CurrentUser actor) {
         Member m = members.lockById(id).orElseThrow(() -> BusinessException.notFound("Membre"));
-        MemberStatus from = m.getStatus();
-        if (from == r.status()) {
-            throw BusinessException.rule("STATUT_IDENTIQUE", "Le membre a déjà ce statut");
+        if (m.getStatus() == MemberStatus.EN_ATTENTE && r.status() == MemberStatus.ACTIF) {
+            return approve(id, new ApprovalRequest(null, r.reason()), actor);
         }
-        if (!from.allowedTargets().contains(r.status())) {
-            throw BusinessException.rule("TRANSITION_INTERDITE", "Passage de " + from + " à " + r.status() + " non autorisé");
+        if (m.getStatus() == MemberStatus.EN_ATTENTE && r.status() == MemberStatus.REFUSE) {
+            return reject(id, new RejectionRequest(r.reason()), actor);
         }
-        if (r.status() == MemberStatus.ACTIF && m.getContributionPlanId() == null) {
-            throw BusinessException.rule("PLAN_REQUIS", "Affectez un plan de cotisation avant d'activer l'adhésion");
+        if (actor != null && actor.isMember(id)) {
+            throw BusinessException.forbidden("Vous ne pouvez pas changer le statut de votre propre adhésion");
         }
-        m.setStatus(r.status());
-        recordHistory(id, from, r.status(), r.reason(), actor);
-        audit.record(AuditCategory.MEMBRE, "STATUT_MEMBRE_MODIFIE", "Member", id,
-                Map.of("de", from.name(), "vers", r.status().name(), "motif", r.reason()));
-        if (r.status() == MemberStatus.RADIE) {
-            users.findByMemberId(id).ifPresent(u -> {
-                u.setEnabled(false);
-                auth.revokeAllSessions(u.getId(), "RADIATION");
-            });
-        }
+        transition(m, r.status(), r.reason(), actor, "STATUT_MEMBRE_MODIFIE", Map.of());
         return m;
     }
 
+    /**
+     * Approbation d'une demande d'adhésion, en une seule décision : affectation du plan de cotisation choisi
+     * (ou conservation de celui déjà affecté par la trésorerie) puis activation. Une personne ne valide pas sa propre
+     * adhésion, sauf à la mise en route (amorçage) : tant qu'aucun autre responsable habilité à valider n'a lui-même
+     * une adhésion active, le premier bureau désigné par l'administrateur peut valider la sienne. Ce cas est
+     * signalé dans le journal d'audit.
+     */
     @Transactional
-    public Member assignPlan(Long id, Long planId) {
+    public Member approve(Long id, ApprovalRequest r, CurrentUser actor) {
+        Member m = members.lockById(id).orElseThrow(() -> BusinessException.notFound("Membre"));
+        requirePending(m);
+        boolean bootstrap = false;
+        if (actor != null && actor.isMember(id)) {
+            if (hasEstablishedApproverOtherThan(actor.userId())) {
+                throw BusinessException.forbidden(
+                        "Votre propre adhésion doit être validée par un autre membre du bureau (présidence ou secrétariat)");
+            }
+            bootstrap = true;
+        }
+        if (r.planId() != null && !r.planId().equals(m.getContributionPlanId())) {
+            setPlan(m, requireActivePlan(r.planId()));
+        } else if (m.getContributionPlanId() != null) {
+            requireActivePlan(m.getContributionPlanId());
+        }
+        if (m.getContributionPlanId() == null) {
+            throw BusinessException.rule("PLAN_REQUIS", "Choisissez le plan de cotisation du nouveau membre");
+        }
+        String reason = r.comment() == null || r.comment().isBlank() ? "Demande d'adhésion approuvée par le bureau" : r.comment().trim();
+        Map<String, Object> details = new HashMap<>();
+        details.put("plan", plans.findById(m.getContributionPlanId()).map(ContributionPlan::getCode).orElse("?"));
+        if (bootstrap) {
+            details.put("amorcage", "auto-validation du premier bureau");
+        }
+        transition(m, MemberStatus.ACTIF, reason, actor, "ADHESION_APPROUVEE", details);
+        return m;
+    }
+
+    /** Refus motivé d'une demande d'adhésion : le compte de connexion éventuel est désactivé ; le refus peut être réexaminé. */
+    @Transactional
+    public Member reject(Long id, RejectionRequest r, CurrentUser actor) {
+        Member m = members.lockById(id).orElseThrow(() -> BusinessException.notFound("Membre"));
+        requirePending(m);
+        if (actor != null && actor.isMember(id)) {
+            throw BusinessException.forbidden("Vous ne pouvez pas statuer sur votre propre demande");
+        }
+        transition(m, MemberStatus.REFUSE, r.reason().trim(), actor, "ADHESION_REFUSEE", Map.of());
+        return m;
+    }
+
+    /** Demandes d'adhésion à examiner (dossiers en attente), les plus anciennes d'abord. */
+    @Transactional(readOnly = true)
+    public ApplicationQueue applications(CurrentUser actor) {
+        Map<Long, String> planNames = new HashMap<>();
+        plans.findAll().forEach(p -> planNames.put(p.getId(), p.getName()));
+        List<ApplicationItem> items = members.findByStatusOrderByCreatedAtAsc(MemberStatus.EN_ATTENTE).stream()
+                .map(m -> {
+                    List<MembershipStatusHistory> h = history.findByMemberIdOrderByChangedAtAscIdAsc(m.getId());
+                    boolean online = !h.isEmpty() && h.getFirst().getChangedBy() == null;
+                    return ApplicationItem.of(m, planNames.get(m.getContributionPlanId()), hasAccount(m.getId()), online,
+                            actor != null && actor.isMember(m.getId()));
+                }).toList();
+        boolean canDecide = actor != null && actor.has(Permission.MEMBER_STATUS_CHANGE);
+        boolean bootstrap = canDecide && !hasEstablishedApproverOtherThan(actor.userId());
+        return new ApplicationQueue(items, canDecide, bootstrap);
+    }
+
+    /**
+     * Un autre responsable habilité à valider les adhésions est-il déjà en place ? Compte actif portant un rôle doté de
+     * MEMBER_STATUS_CHANGE et, s'il est rattaché à un dossier de membre, adhésion active.
+     */
+    public boolean hasEstablishedApproverOtherThan(Long userId) {
+        List<String> roles = permissions.rolesWith(Permission.MEMBER_STATUS_CHANGE.name());
+        if (roles.isEmpty()) {
+            return false;
+        }
+        return users.findActiveByRoles(roles).stream()
+                .filter(u -> !u.getId().equals(userId))
+                .anyMatch(u -> u.getMemberId() == null
+                        || members.findById(u.getMemberId()).map(x -> x.getStatus() == MemberStatus.ACTIF).orElse(false));
+    }
+
+    private static void requirePending(Member m) {
+        if (m.getStatus() != MemberStatus.EN_ATTENTE) {
+            throw BusinessException.rule("DEMANDE_DEJA_TRAITEE", "Cette demande n'est plus en attente (statut actuel : " + m.getStatus() + ")");
+        }
+    }
+
+    private void transition(Member m, MemberStatus to, String reason, CurrentUser actor, String event,
+                            Map<String, Object> extra) {
+        MemberStatus from = m.getStatus();
+        if (from == to) {
+            throw BusinessException.rule("STATUT_IDENTIQUE", "Le membre a déjà ce statut");
+        }
+        if (!from.allowedTargets().contains(to)) {
+            throw BusinessException.rule("TRANSITION_INTERDITE", "Passage de " + from + " à " + to + " non autorisé");
+        }
+        if (to == MemberStatus.ACTIF && m.getContributionPlanId() == null) {
+            throw BusinessException.rule("PLAN_REQUIS", "Affectez un plan de cotisation avant d'activer l'adhésion");
+        }
+        Long id = m.getId();
+        m.setStatus(to);
+        recordHistory(id, from, to, reason, actor);
+        Map<String, Object> details = new HashMap<>(extra);
+        details.put("de", from.name());
+        details.put("vers", to.name());
+        details.put("motif", reason);
+        audit.record(AuditCategory.MEMBRE, event, "Member", id, details);
+        if (to == MemberStatus.RADIE || to == MemberStatus.REFUSE) {
+            users.findByMemberId(id).ifPresent(u -> {
+                u.setEnabled(false);
+                auth.revokeAllSessions(u.getId(), to == MemberStatus.RADIE ? "RADIATION" : "ADHESION_REFUSEE");
+            });
+        } else if (from == MemberStatus.REFUSE) {
+            users.findByMemberId(id).ifPresent(u -> u.setEnabled(true));
+        }
+        notifyStatus(m, from, to, reason);
+    }
+
+    private void notifyStatus(Member m, MemberStatus from, MemberStatus to, String reason) {
+        String subject;
+        String body;
+        switch (to) {
+            case ACTIF -> {
+                subject = from == MemberStatus.EN_ATTENTE ? "Votre adhésion est validée" : "Votre adhésion est de nouveau active";
+                body = "Bonjour " + m.getFirstName() + ",\n\nLe bureau de la coopérative a "
+                        + (from == MemberStatus.EN_ATTENTE ? "validé" : "réactivé") + " votre adhésion (n° " + m.getMemberNumber()
+                        + "). Vous pouvez désormais consulter vos échéances, payer vos cotisations et candidater aux attributions"
+                        + " depuis votre espace membre.";
+            }
+            case REFUSE -> {
+                subject = "Votre demande d'adhésion n'a pas été retenue";
+                body = "Bonjour " + m.getFirstName() + ",\n\nLe bureau de la coopérative n'a pas retenu votre demande d'adhésion."
+                        + "\nMotif : " + reason + "\n\nPour toute question, adressez-vous au bureau.";
+            }
+            case SUSPENDU -> {
+                subject = "Votre adhésion est suspendue";
+                body = "Bonjour " + m.getFirstName() + ",\n\nVotre adhésion est suspendue.\nMotif : " + reason;
+            }
+            case RADIE -> {
+                subject = "Votre adhésion a pris fin";
+                body = "Bonjour " + m.getFirstName() + ",\n\nVotre adhésion a pris fin (radiation).\nMotif : " + reason;
+            }
+            case EN_ATTENTE -> {
+                subject = "Votre demande d'adhésion est réexaminée";
+                body = "Bonjour " + m.getFirstName() + ",\n\nVotre demande d'adhésion est de nouveau à l'examen du bureau.";
+            }
+            default -> {
+                return;
+            }
+        }
+        notifications.notifyMember(m.getId(), "STATUT_ADHESION_" + to.name(), subject, body,
+                "STATUT_ADHESION:" + m.getId() + ":" + to.name() + ":" + Instant.now(clock).toEpochMilli(), "Member", m.getId());
+    }
+
+    @Transactional
+    public Member assignPlan(Long id, Long planId, CurrentUser actor) {
+        if (actor != null && actor.isMember(id)) {
+            throw BusinessException.forbidden("Votre propre plan de cotisation est affecté par un autre membre du bureau");
+        }
         Member m = get(id);
         ContributionPlan plan = requireActivePlan(planId);
-        Long previous = m.getContributionPlanId();
-        m.setContributionPlanId(plan.getId());
-        audit.record(AuditCategory.FINANCE, "PLAN_AFFECTE", "Member", id,
-                Map.of("ancien_plan", String.valueOf(previous), "nouveau_plan", plan.getCode()));
+        if (m.getStatus() == MemberStatus.RADIE || m.getStatus() == MemberStatus.REFUSE) {
+            throw BusinessException.rule("PLAN_IMPOSSIBLE", "Aucun plan ne s'affecte à un membre radié ou à une demande refusée");
+        }
+        setPlan(m, plan);
         return m;
+    }
+
+    /**
+     * Affectation groupée d'un plan (par exemple tous les membres encore sans plan). Les membres radiés, les demandes
+     * refusées, le dossier de l'utilisateur lui-même et ceux qui ont déjà ce plan sont laissés tels quels ; chaque
+     * affectation est journalisée séparément.
+     */
+    @Transactional
+    public BulkPlanResult assignPlan(List<Long> ids, Long planId, CurrentUser actor) {
+        ContributionPlan plan = requireActivePlan(planId);
+        int updated = 0;
+        int unchanged = 0;
+        int excluded = 0;
+        for (Long id : new java.util.LinkedHashSet<>(ids)) {
+            Member m = get(id);
+            if (m.getStatus() == MemberStatus.RADIE || m.getStatus() == MemberStatus.REFUSE
+                    || (actor != null && actor.isMember(id))) {
+                excluded++;
+            } else if (plan.getId().equals(m.getContributionPlanId())) {
+                unchanged++;
+            } else {
+                setPlan(m, plan);
+                updated++;
+            }
+        }
+        return new BulkPlanResult(updated, unchanged, excluded);
+    }
+
+    private void setPlan(Member m, ContributionPlan plan) {
+        Long previous = m.getContributionPlanId();
+        if (plan.getId().equals(previous)) {
+            return;
+        }
+        m.setContributionPlanId(plan.getId());
+        audit.record(AuditCategory.FINANCE, "PLAN_AFFECTE", "Member", m.getId(),
+                Map.of("ancien_plan", String.valueOf(previous), "nouveau_plan", plan.getCode()));
     }
 
     @Transactional(readOnly = true)

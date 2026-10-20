@@ -65,6 +65,12 @@ public class AdminController {
         service.unlock(id);
     }
 
+    @GetMapping("/bureau-setup")
+    @PreAuthorize("hasAuthority('USER_ADMIN')")
+    public BureauSetup bureauSetup() {
+        return service.bureauSetup();
+    }
+
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('USER_ADMIN')")
     public List<RoleResponse> roles() {

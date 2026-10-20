@@ -1033,6 +1033,30 @@
                 }
             }
         },
+        "/api/v1/public/registration": {
+            "post": {
+                "tags": [
+                    "Inscription"
+                ],
+                "summary": "Cr\u00e9e un compte membre en attente de validation par le bureau",
+                "operationId": "register",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegistrationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    }
+                }
+            }
+        },
         "/api/v1/property/projects": {
             "get": {
                 "tags": [
@@ -1725,7 +1749,7 @@
                 "tags": [
                     "Membres"
                 ],
-                "summary": "Recherche pagin\u00e9e des membres (filtres : texte, statut, type)",
+                "summary": "Recherche pagin\u00e9e des membres (filtres : texte, statut, type, sans plan de cotisation)",
                 "operationId": "search",
                 "parameters": [
                     {
@@ -1746,7 +1770,8 @@
                                 "EN_ATTENTE",
                                 "ACTIF",
                                 "SUSPENDU",
-                                "RADIE"
+                                "RADIE",
+                                "REFUSE"
                             ]
                         }
                     },
@@ -1761,6 +1786,15 @@
                                 "ORDINAIRE",
                                 "BENEFICIAIRE"
                             ]
+                        }
+                    },
+                    {
+                        "name": "withoutPlan",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         }
                     },
                     {
@@ -1868,6 +1902,48 @@
                 }
             }
         },
+        "/api/v1/members/{id}/reject": {
+            "post": {
+                "tags": [
+                    "Membres"
+                ],
+                "summary": "Refuser une demande d'adh\u00e9sion (motif obligatoire, notifi\u00e9 \u00e0 la personne)",
+                "operationId": "reject",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RejectionRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MemberResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/members/{id}/plan": {
             "post": {
                 "tags": [
@@ -1902,6 +1978,79 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/MemberResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/members/{id}/approve": {
+            "post": {
+                "tags": [
+                    "Membres"
+                ],
+                "summary": "Approuver une demande d'adh\u00e9sion : affectation du plan et activation en une d\u00e9cision trac\u00e9e",
+                "operationId": "approve",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ApprovalRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MemberResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/members/plan": {
+            "post": {
+                "tags": [
+                    "Membres"
+                ],
+                "summary": "Affecter un plan de cotisation \u00e0 plusieurs membres (chaque affectation est journalis\u00e9e)",
+                "operationId": "assignPlanToMany",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BulkPlanRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BulkPlanResult"
                                 }
                             }
                         }
@@ -4403,7 +4552,7 @@
                 "tags": [
                     "Attribution des lots"
                 ],
-                "operationId": "approve",
+                "operationId": "approve_1",
                 "parameters": [
                     {
                         "name": "id",
@@ -5570,7 +5719,8 @@
                                 "EN_ATTENTE",
                                 "ACTIF",
                                 "SUSPENDU",
-                                "RADIE"
+                                "RADIE",
+                                "REFUSE"
                             ]
                         }
                     }
@@ -5583,6 +5733,27 @@
                                 "schema": {
                                     "type": "string",
                                     "format": "byte"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/members/applications": {
+            "get": {
+                "tags": [
+                    "Membres"
+                ],
+                "summary": "Demandes d'adh\u00e9sion \u00e0 examiner (dossiers en attente), les plus anciennes d'abord",
+                "operationId": "applications",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApplicationQueue"
                                 }
                             }
                         }
@@ -5623,6 +5794,27 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/MemberResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me/plan": {
+            "get": {
+                "tags": [
+                    "Espace membre"
+                ],
+                "summary": "R\u00e8gles de son plan de cotisation (montant, \u00e9ch\u00e9ance, d\u00e9lai de gr\u00e2ce, p\u00e9nalit\u00e9s)",
+                "operationId": "plan",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlanResponse"
                                 }
                             }
                         }
@@ -6514,6 +6706,26 @@
                     }
                 }
             }
+        },
+        "/api/v1/admin/bureau-setup": {
+            "get": {
+                "tags": [
+                    "Administration"
+                ],
+                "operationId": "bureauSetup",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BureauSetup"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -6880,7 +7092,8 @@
                             "EN_ATTENTE",
                             "ACTIF",
                             "SUSPENDU",
-                            "RADIE"
+                            "RADIE",
+                            "REFUSE"
                         ]
                     },
                     "contributionPlanId": {
@@ -8130,6 +8343,12 @@
                         "type": "integer",
                         "format": "int64"
                     },
+                    "memberNumber": {
+                        "type": "string"
+                    },
+                    "memberStatus": {
+                        "type": "string"
+                    },
                     "lastLoginAt": {
                         "type": "string",
                         "format": "date-time"
@@ -8255,6 +8474,50 @@
                         "format": "date-time"
                     }
                 }
+            },
+            "RegistrationRequest": {
+                "type": "object",
+                "properties": {
+                    "firstName": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 0
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 0
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 200,
+                        "minLength": 0
+                    },
+                    "phone": {
+                        "type": "string",
+                        "pattern": "^\\+?[0-9 ]{9,20}$"
+                    },
+                    "city": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "minLength": 0
+                    },
+                    "password": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 0
+                    },
+                    "consent": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "email",
+                    "firstName",
+                    "lastName",
+                    "password"
+                ]
             },
             "LotStatusRequest": {
                 "type": "object",
@@ -8684,7 +8947,8 @@
                             "EN_ATTENTE",
                             "ACTIF",
                             "SUSPENDU",
-                            "RADIE"
+                            "RADIE",
+                            "REFUSE"
                         ]
                     },
                     "reason": {
@@ -8698,6 +8962,19 @@
                     "status"
                 ]
             },
+            "RejectionRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "minLength": 5
+                    }
+                },
+                "required": [
+                    "reason"
+                ]
+            },
             "AssignPlanRequest": {
                 "type": "object",
                 "properties": {
@@ -8709,6 +8986,59 @@
                 "required": [
                     "planId"
                 ]
+            },
+            "ApprovalRequest": {
+                "type": "object",
+                "properties": {
+                    "planId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "comment": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "minLength": 0
+                    }
+                }
+            },
+            "BulkPlanRequest": {
+                "type": "object",
+                "properties": {
+                    "memberIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        },
+                        "maxItems": 500,
+                        "minItems": 0
+                    },
+                    "planId": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "required": [
+                    "memberIds",
+                    "planId"
+                ]
+            },
+            "BulkPlanResult": {
+                "type": "object",
+                "properties": {
+                    "updated": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "unchanged": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "excluded": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
             },
             "DataRequestCreate": {
                 "type": "object",
@@ -9988,40 +10318,6 @@
                     }
                 }
             },
-            "ApprovalRequest": {
-                "type": "object",
-                "properties": {
-                    "step": {
-                        "type": "string",
-                        "enum": [
-                            "VALIDATION_LISTE",
-                            "VALIDATION_PV",
-                            "DECISION_COMMISSION",
-                            "ANNULATION_RESULTAT"
-                        ]
-                    },
-                    "decision": {
-                        "type": "string",
-                        "enum": [
-                            "APPROUVE",
-                            "REFUSE"
-                        ]
-                    },
-                    "comment": {
-                        "type": "string",
-                        "maxLength": 2000,
-                        "minLength": 0
-                    },
-                    "targetId": {
-                        "type": "integer",
-                        "format": "int64"
-                    }
-                },
-                "required": [
-                    "decision",
-                    "step"
-                ]
-            },
             "ContestDecisionRequest": {
                 "type": "object",
                 "properties": {
@@ -10208,6 +10504,9 @@
                         "type": "boolean"
                     },
                     "demoData": {
+                        "type": "boolean"
+                    },
+                    "registrationOpen": {
                         "type": "boolean"
                     }
                 }
@@ -10569,12 +10868,17 @@
                             "EN_ATTENTE",
                             "ACTIF",
                             "SUSPENDU",
-                            "RADIE"
+                            "RADIE",
+                            "REFUSE"
                         ]
                     },
                     "membershipDate": {
                         "type": "string",
                         "format": "date"
+                    },
+                    "contributionPlanId": {
+                        "type": "integer",
+                        "format": "int64"
                     },
                     "demo": {
                         "type": "boolean"
@@ -10701,7 +11005,8 @@
                             "EN_ATTENTE",
                             "ACTIF",
                             "SUSPENDU",
-                            "RADIE"
+                            "RADIE",
+                            "REFUSE"
                         ]
                     },
                     "toStatus": {
@@ -10710,7 +11015,8 @@
                             "EN_ATTENTE",
                             "ACTIF",
                             "SUSPENDU",
-                            "RADIE"
+                            "RADIE",
+                            "REFUSE"
                         ]
                     },
                     "reason": {
@@ -10723,6 +11029,82 @@
                     "changedAt": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                }
+            },
+            "ApplicationItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "memberNumber": {
+                        "type": "string"
+                    },
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "phone": {
+                        "type": "string"
+                    },
+                    "city": {
+                        "type": "string"
+                    },
+                    "memberType": {
+                        "type": "string",
+                        "enum": [
+                            "FONDATEUR",
+                            "ORDINAIRE",
+                            "BENEFICIAIRE"
+                        ]
+                    },
+                    "membershipDate": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "contributionPlanId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "planName": {
+                        "type": "string"
+                    },
+                    "hasAccount": {
+                        "type": "boolean"
+                    },
+                    "online": {
+                        "type": "boolean"
+                    },
+                    "self": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "ApplicationQueue": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ApplicationItem"
+                        }
+                    },
+                    "canDecide": {
+                        "type": "boolean"
+                    },
+                    "bootstrap": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -11480,6 +11862,61 @@
                     },
                     "description": {
                         "type": "string"
+                    }
+                }
+            },
+            "BureauHolder": {
+                "type": "object",
+                "properties": {
+                    "userId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "activated": {
+                        "type": "boolean"
+                    },
+                    "memberStatus": {
+                        "type": "string"
+                    }
+                }
+            },
+            "BureauSetup": {
+                "type": "object",
+                "properties": {
+                    "presidents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BureauHolder"
+                        }
+                    },
+                    "treasurers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BureauHolder"
+                        }
+                    },
+                    "secretaries": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/BureauHolder"
+                        }
+                    },
+                    "approverInPlace": {
+                        "type": "boolean"
+                    },
+                    "activePlans": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "pendingApplications": {
+                        "type": "integer",
+                        "format": "int64"
                     }
                 }
             }

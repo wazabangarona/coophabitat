@@ -36,7 +36,8 @@ import java.util.*;
 public class DashboardService {
 
     private static final Map<MemberStatus, String> MEMBER_LABELS = Map.of(MemberStatus.EN_ATTENTE, "Adhésions en attente",
-            MemberStatus.ACTIF, "Membres actifs", MemberStatus.SUSPENDU, "Membres suspendus", MemberStatus.RADIE, "Membres radiés");
+            MemberStatus.ACTIF, "Membres actifs", MemberStatus.SUSPENDU, "Membres suspendus", MemberStatus.RADIE, "Membres radiés",
+            MemberStatus.REFUSE, "Demandes d'adhésion refusées");
     private static final Map<LotStatus, String> LOT_LABELS = Map.of(LotStatus.EN_PREPARATION, "Lots en préparation",
             LotStatus.DISPONIBLE, "Lots disponibles", LotStatus.RESERVE, "Lots réservés (procédure en cours)",
             LotStatus.ATTRIBUE, "Lots attribués", LotStatus.INDISPONIBLE, "Lots indisponibles", LotStatus.LITIGIEUX, "Lots en litige");

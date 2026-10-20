@@ -40,15 +40,37 @@ public class MemberController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MEMBER_READ_ALL')")
-    @Operation(summary = "Recherche paginée des membres (filtres : texte, statut, type)")
+    @Operation(summary = "Recherche paginée des membres (filtres : texte, statut, type, sans plan de cotisation)")
     public PageResponse<MemberListItem> search(@RequestParam(required = false) String q,
                                                @RequestParam(required = false) MemberStatus status,
                                                @RequestParam(required = false) MemberType type,
+                                               @RequestParam(defaultValue = "false") boolean withoutPlan,
                                                @RequestParam(defaultValue = "0") int page,
                                                @RequestParam(defaultValue = "20") int size) {
         var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
                 Sort.by("lastName").and(Sort.by("firstName")));
-        return PageResponse.of(service.search(q, status, type, pageable), MemberListItem::of);
+        return PageResponse.of(service.search(q, status, type, withoutPlan, pageable), MemberListItem::of);
+    }
+
+    @GetMapping("/applications")
+    @PreAuthorize("hasAuthority('MEMBER_READ_ALL')")
+    @Operation(summary = "Demandes d'adhésion à examiner (dossiers en attente), les plus anciennes d'abord")
+    public ApplicationQueue applications() {
+        return service.applications(CurrentUserProvider.require());
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('MEMBER_STATUS_CHANGE')")
+    @Operation(summary = "Approuver une demande d'adhésion : affectation du plan et activation en une décision tracée")
+    public MemberResponse approve(@PathVariable Long id, @Valid @RequestBody ApprovalRequest body) {
+        return MemberResponse.of(service.approve(id, body, CurrentUserProvider.require()), service.hasAccount(id));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('MEMBER_STATUS_CHANGE')")
+    @Operation(summary = "Refuser une demande d'adhésion (motif obligatoire, notifié à la personne)")
+    public MemberResponse reject(@PathVariable Long id, @Valid @RequestBody RejectionRequest body) {
+        return MemberResponse.of(service.reject(id, body, CurrentUserProvider.require()), service.hasAccount(id));
     }
 
     @GetMapping("/{id}")
@@ -80,7 +102,14 @@ public class MemberController {
     @PostMapping("/{id}/plan")
     @PreAuthorize("hasAuthority('PLAN_WRITE')")
     public MemberResponse assignPlan(@PathVariable Long id, @Valid @RequestBody AssignPlanRequest body) {
-        return MemberResponse.of(service.assignPlan(id, body.planId()), service.hasAccount(id));
+        return MemberResponse.of(service.assignPlan(id, body.planId(), CurrentUserProvider.require()), service.hasAccount(id));
+    }
+
+    @PostMapping("/plan")
+    @PreAuthorize("hasAuthority('PLAN_WRITE')")
+    @Operation(summary = "Affecter un plan de cotisation à plusieurs membres (chaque affectation est journalisée)")
+    public BulkPlanResult assignPlanToMany(@Valid @RequestBody BulkPlanRequest body) {
+        return service.assignPlan(body.memberIds(), body.planId(), CurrentUserProvider.require());
     }
 
     @GetMapping("/{id}/history")
@@ -107,7 +136,7 @@ public class MemberController {
     @Operation(summary = "Export Excel de la liste des membres (journalisé)")
     public ResponseEntity<byte[]> export(@RequestParam(required = false) MemberStatus status) {
         List<List<Object>> rows = new ArrayList<>();
-        service.search(null, status, null, PageRequest.of(0, 10_000, Sort.by("memberNumber"))).forEach(m -> rows.add(List.of(
+        service.search(null, status, null, false, PageRequest.of(0, 10_000, Sort.by("memberNumber"))).forEach(m -> rows.add(List.of(
                 m.getMemberNumber(), m.getLastName(), m.getFirstName(), m.getMemberType().name(), m.getStatus().name(),
                 m.getMembershipDate(), nz(m.getCity()), nz(m.getPhone()), nz(m.getEmail()), m.isDemo())));
         audit.record(AuditCategory.DONNEES, "EXPORT_MEMBRES", "Member", null,

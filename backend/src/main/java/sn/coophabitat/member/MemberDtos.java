@@ -48,6 +48,39 @@ public final class MemberDtos {
     public record AssignPlanRequest(@NotNull Long planId) {
     }
 
+    public record BulkPlanRequest(@NotEmpty @Size(max = 500) java.util.List<@NotNull Long> memberIds, @NotNull Long planId) {
+    }
+
+    /** Résultat d'une affectation groupée : modifiés, déjà sur ce plan, exclus (radiés, demandes refusées, son propre dossier). */
+    public record BulkPlanResult(int updated, int unchanged, int excluded) {
+    }
+
+    /** Approbation d'une demande : plan à affecter (facultatif si la trésorerie en a déjà affecté un) et commentaire. */
+    public record ApprovalRequest(Long planId, @Size(max = 1000) String comment) {
+    }
+
+    public record RejectionRequest(@NotBlank @Size(min = 5, max = 1000) String reason) {
+    }
+
+    /** Demande d'adhésion à examiner. {@code self} : la demande est celle de l'utilisateur connecté. */
+    public record ApplicationItem(Long id, String memberNumber, String firstName, String lastName, String email,
+                                  String phone, String city, MemberType memberType, LocalDate membershipDate,
+                                  Instant createdAt, Long contributionPlanId, String planName, boolean hasAccount,
+                                  boolean online, boolean self) {
+        public static ApplicationItem of(Member m, String planName, boolean hasAccount, boolean online, boolean self) {
+            return new ApplicationItem(m.getId(), m.getMemberNumber(), m.getFirstName(), m.getLastName(), m.getEmail(),
+                    m.getPhone(), m.getCity(), m.getMemberType(), m.getMembershipDate(), m.getCreatedAt(),
+                    m.getContributionPlanId(), planName, hasAccount, online, self);
+        }
+    }
+
+    /**
+     * File des demandes. {@code canDecide} : l'utilisateur peut approuver ou refuser ; {@code bootstrap} : aucun autre
+     * responsable habilité n'est encore en place (mise en route), l'utilisateur peut donc valider sa propre adhésion.
+     */
+    public record ApplicationQueue(java.util.List<ApplicationItem> items, boolean canDecide, boolean bootstrap) {
+    }
+
     public record MemberResponse(Long id, String memberNumber, String firstName, String lastName, String email,
                                  String phone, String address, String city, LocalDate membershipDate,
                                  MemberType memberType, MemberStatus status, Long contributionPlanId, String notes,
@@ -61,10 +94,10 @@ public final class MemberDtos {
     }
 
     public record MemberListItem(Long id, String memberNumber, String fullName, String city, MemberType memberType,
-                                 MemberStatus status, LocalDate membershipDate, boolean demo) {
+                                 MemberStatus status, LocalDate membershipDate, Long contributionPlanId, boolean demo) {
         public static MemberListItem of(Member m) {
             return new MemberListItem(m.getId(), m.getMemberNumber(), m.fullName(), m.getCity(), m.getMemberType(),
-                    m.getStatus(), m.getMembershipDate(), m.isDemo());
+                    m.getStatus(), m.getMembershipDate(), m.getContributionPlanId(), m.isDemo());
         }
     }
 

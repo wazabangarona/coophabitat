@@ -34,6 +34,16 @@ public class PermissionResolver {
         return result;
     }
 
+    /** Rôles qui accordent la permission donnée. */
+    public java.util.List<String> rolesWith(String permission) {
+        Map<String, Set<String>> map = cache.get();
+        if (map == null) {
+            map = load();
+            cache.set(map);
+        }
+        return map.entrySet().stream().filter(e -> e.getValue().contains(permission)).map(Map.Entry::getKey).sorted().toList();
+    }
+
     public Set<String> knownRoles() {
         return new HashSet<>(jdbc.queryForList("SELECT code FROM role", String.class));
     }

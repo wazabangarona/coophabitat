@@ -127,6 +127,7 @@ Le schéma est géré par **Flyway** ; les migrations s'exécutent automatiqueme
 | `V1__schema_initial.sql` | 52 tables, contraintes de clés étrangères, d'unicité et de statut, index |
 | `V2__integrite_et_referentiels.sql` | Triggers d'immuabilité (journaux en ajout seul, écritures non modifiables, transactions confirmées figées, reçus et documents figés), contrôle d'équilibre des écritures, rôles, permissions, plan de comptes, durées de conservation |
 | `V3__sequences.sql` | Séquences de numérotation (reçus, références) |
+| `V4__validation_adhesions.sql` | Statut `REFUSE` des demandes d'adhésion refusées |
 
 Hibernate est en mode `validate` : il ne modifie jamais le schéma. Une migration déjà appliquée ne doit jamais
 être modifiée ; toute évolution passe par un nouveau fichier `V4__…`.
@@ -228,15 +229,24 @@ n'est jamais une preuve de paiement. Détails : [docs/paiements.md](docs/paiemen
 
 Avec `COOPHABITAT_PUBLIC_REGISTRATION=true` (désactivé par défaut), le site affiche « Adhérer » et la page
 `/inscription`. La personne crée son compte, rattaché à un dossier de membre **en attente** ; elle peut se connecter
-mais, comme pour tout membre en attente, les paiements et les candidatures restent fermés. Le bureau voit les dossiers
-en attente sur la page Membres : la trésorerie affecte un plan de cotisation, puis la présidence ou le secrétariat
-active l'adhésion (changement de statut motivé et historisé). Une adresse ou un téléphone déjà inscrits reçoivent la
+mais, comme pour tout membre en attente, les paiements et les candidatures restent fermés. Le bureau est prévenu et
+traite toutes les demandes sur une seule page, **Demandes d'adhésion** (`/bureau/adhesions`) : la présidence ou le
+secrétariat **approuve** en choisissant le plan de cotisation (affectation du plan et activation en une seule décision),
+ou **refuse** avec un motif (statut `REFUSE`, accès en ligne fermé, réexamen possible depuis la fiche). La trésorerie peut
+préparer un dossier en affectant le plan à l'avance. Pour les membres déjà inscrits, la trésorerie affecte ou
+change un plan depuis la fiche du membre, ou en une fois depuis la page Membres (filtre « Sans plan de cotisation »,
+cases à cocher, « Affecter ce plan ») ; personne n'affecte son propre plan. La personne est prévenue (espace membre et courriel) ; chaque
+décision est historisée et journalisée. Nul ne valide sa propre adhésion, sauf à la mise en route (voir ci-dessous). Une adresse ou un téléphone déjà inscrits reçoivent la
 même réponse qu'une demande acceptée, pour ne pas révéler qui est inscrit ; les demandes sont limitées à 5 par minute
 et par adresse IP.
 
 Mise en route d'une installation officielle : l'administrateur initial active son compte avec le lien affiché,
 renseigne le nom de la coopérative (Administration), puis attribue les rôles du bureau (Président, Trésorier,
-Secrétaire…) aux comptes concernés, après que ces personnes ont demandé leur adhésion. Sans serveur SMTP, la
+Secrétaire…) aux comptes concernés, après que ces personnes ont demandé leur adhésion. La carte « Mise en route du
+bureau » de l'onglet Comptes et rôles indique ce qui reste à faire. La trésorerie crée et active un plan de cotisation ;
+tant qu'aucun autre responsable habilité n'a d'adhésion active, le premier président ou secrétaire désigné valide sa
+propre adhésion (cas signalé dans le journal d'audit), puis celles des autres. L'administrateur technique ne valide
+jamais lui-même d'adhésion. Sans serveur SMTP, la
 réinitialisation de mot de passe par courriel n'est pas disponible : configurer `COOPHABITAT_SMTP_*` pour l'ouvrir.
 
 ## 12. Déploiement

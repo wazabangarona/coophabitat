@@ -23,8 +23,20 @@ public final class AdminDtos {
     }
 
     public record UserResponse(Long id, String email, String displayName, boolean enabled, boolean activated,
-                               Set<String> roles, Long memberId, Instant lastLoginAt, Instant lockedUntil,
-                               boolean demo, Instant createdAt) {
+                               Set<String> roles, Long memberId, String memberNumber, String memberStatus,
+                               Instant lastLoginAt, Instant lockedUntil, boolean demo, Instant createdAt) {
+    }
+
+    /** Titulaire d'une fonction du bureau, avec l'état de son adhésion (null s'il n'est pas rattaché à un membre). */
+    public record BureauHolder(Long userId, String displayName, String email, boolean activated, String memberStatus) {
+    }
+
+    /**
+     * État de la mise en route : qui occupe les fonctions du bureau, si un responsable peut déjà valider les adhésions,
+     * s'il existe un plan de cotisation actif et combien de demandes attendent.
+     */
+    public record BureauSetup(List<BureauHolder> presidents, List<BureauHolder> treasurers, List<BureauHolder> secretaries,
+                              boolean approverInPlace, long activePlans, long pendingApplications) {
     }
 
     public record RoleResponse(String code, String label, String description, boolean technical, List<String> permissions) {
