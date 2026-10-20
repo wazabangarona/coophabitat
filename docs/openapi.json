@@ -1749,7 +1749,7 @@
                 "tags": [
                     "Membres"
                 ],
-                "summary": "Recherche pagin\u00e9e des membres (filtres : texte, statut, type)",
+                "summary": "Recherche pagin\u00e9e des membres (filtres : texte, statut, type, sans plan de cotisation)",
                 "operationId": "search",
                 "parameters": [
                     {
@@ -1786,6 +1786,15 @@
                                 "ORDINAIRE",
                                 "BENEFICIAIRE"
                             ]
+                        }
+                    },
+                    {
+                        "name": "withoutPlan",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
                         }
                     },
                     {
@@ -2011,6 +2020,37 @@
                             "*/*": {
                                 "schema": {
                                     "$ref": "#/components/schemas/MemberResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/members/plan": {
+            "post": {
+                "tags": [
+                    "Membres"
+                ],
+                "summary": "Affecter un plan de cotisation \u00e0 plusieurs membres (chaque affectation est journalis\u00e9e)",
+                "operationId": "assignPlanToMany",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BulkPlanRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BulkPlanResult"
                                 }
                             }
                         }
@@ -8961,6 +9001,45 @@
                     }
                 }
             },
+            "BulkPlanRequest": {
+                "type": "object",
+                "properties": {
+                    "memberIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        },
+                        "maxItems": 500,
+                        "minItems": 0
+                    },
+                    "planId": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "required": [
+                    "memberIds",
+                    "planId"
+                ]
+            },
+            "BulkPlanResult": {
+                "type": "object",
+                "properties": {
+                    "updated": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "unchanged": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "excluded": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
             "DataRequestCreate": {
                 "type": "object",
                 "properties": {
@@ -10796,6 +10875,10 @@
                     "membershipDate": {
                         "type": "string",
                         "format": "date"
+                    },
+                    "contributionPlanId": {
+                        "type": "integer",
+                        "format": "int64"
                     },
                     "demo": {
                         "type": "boolean"

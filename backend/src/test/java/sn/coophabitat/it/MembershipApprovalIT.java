@@ -152,4 +152,40 @@ class MembershipApprovalIT extends IntegrationTest {
         // Une fois ce premier responsable en place, les autres demandes suivent la règle normale.
         assertThat(members.hasEstablishedApproverOtherThan(-1L)).isTrue();
     }
+
+    @Test
+    void aPlanCanBeAssignedToSeveralMembersAtOnce() throws Exception {
+        var plan = fx.activePlan(BigDecimal.valueOf(12_000), LocalDate.now(), 5, PenaltyMethod.AUCUNE, BigDecimal.ZERO);
+        Member a = applicant();
+        Member b = fx.activeMember(plan.getId(), LocalDate.now());
+        Member refused = applicant();
+        String president = fx.token(fx.user(null, "PRESIDENT"));
+        mvc.perform(post("/api/v1/members/" + refused.getId() + "/reject").header("Authorization", bearer(president))
+                        .contentType(MediaType.APPLICATION_JSON).content(json("{'reason':'Dossier incomplet'}")))
+                .andExpect(status().isOk());
+        String treasurer = fx.token(fx.user(null, "TRESORIER"));
+
+        mvc.perform(get("/api/v1/members").param("withoutPlan", "true").param("q", a.getMemberNumber())
+                        .header("Authorization", bearer(treasurer)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1));
+
+        String body = "{'planId':" + plan.getId() + ",'memberIds':[" + a.getId() + "," + b.getId() + "," + refused.getId() + "]}";
+        mvc.perform(post("/api/v1/members/plan").header("Authorization", bearer(president))
+                        .contentType(MediaType.APPLICATION_JSON).content(json(body)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/members/plan").header("Authorization", bearer(treasurer))
+                        .contentType(MediaType.APPLICATION_JSON).content(json(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updated").value(1))
+                .andExpect(jsonPath("$.unchanged").value(1))
+                .andExpect(jsonPath("$.excluded").value(1));
+        assertThat(members.get(a.getId()).getContributionPlanId()).isEqualTo(plan.getId());
+        assertThat(members.get(refused.getId()).getContributionPlanId()).isNull();
+        // Un trésorier n'affecte pas son propre plan.
+        Member own = applicant("MEMBRE", "TRESORIER");
+        String ownToken = fx.token(users.findByMemberId(own.getId()).orElseThrow());
+        mvc.perform(post("/api/v1/members/" + own.getId() + "/plan").header("Authorization", bearer(ownToken))
+                        .contentType(MediaType.APPLICATION_JSON).content(json("{'planId':" + plan.getId() + "}")))
+                .andExpect(status().isForbidden());
+    }
 }

@@ -48,6 +48,13 @@ public final class MemberDtos {
     public record AssignPlanRequest(@NotNull Long planId) {
     }
 
+    public record BulkPlanRequest(@NotEmpty @Size(max = 500) java.util.List<@NotNull Long> memberIds, @NotNull Long planId) {
+    }
+
+    /** Résultat d'une affectation groupée : modifiés, déjà sur ce plan, exclus (radiés, demandes refusées, son propre dossier). */
+    public record BulkPlanResult(int updated, int unchanged, int excluded) {
+    }
+
     /** Approbation d'une demande : plan à affecter (facultatif si la trésorerie en a déjà affecté un) et commentaire. */
     public record ApprovalRequest(Long planId, @Size(max = 1000) String comment) {
     }
@@ -87,10 +94,10 @@ public final class MemberDtos {
     }
 
     public record MemberListItem(Long id, String memberNumber, String fullName, String city, MemberType memberType,
-                                 MemberStatus status, LocalDate membershipDate, boolean demo) {
+                                 MemberStatus status, LocalDate membershipDate, Long contributionPlanId, boolean demo) {
         public static MemberListItem of(Member m) {
             return new MemberListItem(m.getId(), m.getMemberNumber(), m.fullName(), m.getCity(), m.getMemberType(),
-                    m.getStatus(), m.getMembershipDate(), m.isDemo());
+                    m.getStatus(), m.getMembershipDate(), m.getContributionPlanId(), m.isDemo());
         }
     }
 

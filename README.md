@@ -233,7 +233,9 @@ mais, comme pour tout membre en attente, les paiements et les candidatures reste
 traite toutes les demandes sur une seule page, **Demandes d'adhésion** (`/bureau/adhesions`) : la présidence ou le
 secrétariat **approuve** en choisissant le plan de cotisation (affectation du plan et activation en une seule décision),
 ou **refuse** avec un motif (statut `REFUSE`, accès en ligne fermé, réexamen possible depuis la fiche). La trésorerie peut
-préparer un dossier en affectant le plan à l'avance. La personne est prévenue (espace membre et courriel) ; chaque
+préparer un dossier en affectant le plan à l'avance. Pour les membres déjà inscrits, la trésorerie affecte ou
+change un plan depuis la fiche du membre, ou en une fois depuis la page Membres (filtre « Sans plan de cotisation »,
+cases à cocher, « Affecter ce plan ») ; personne n'affecte son propre plan. La personne est prévenue (espace membre et courriel) ; chaque
 décision est historisée et journalisée. Nul ne valide sa propre adhésion, sauf à la mise en route (voir ci-dessous). Une adresse ou un téléphone déjà inscrits reçoivent la
 même réponse qu'une demande acceptée, pour ne pas révéler qui est inscrit ; les demandes sont limitées à 5 par minute
 et par adresse IP.

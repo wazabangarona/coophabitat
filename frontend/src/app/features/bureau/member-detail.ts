@@ -92,10 +92,18 @@ interface Data {
             <dt>Adresse</dt><dd>{{ x.member.address || '—' }} {{ x.member.city }}</dd><dt>Adhésion</dt><dd>{{ x.member.membershipDate | day }}</dd>
             <dt>Accès en ligne</dt><dd>{{ x.member.hasAccount ? 'Oui' : 'Non' }}</dd>
             <dt>Plan de cotisation</dt><dd>{{ x.summary.planName || 'Aucun' }}
-              @if (auth.has('PLAN_WRITE') && plans().length) {
-                <select [(ngModel)]="planId" aria-label="Plan à affecter" class="inline-select">
-                  @for (p of plans(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }</select>
-                <button type="button" class="btn small" (click)="assignPlan()">Affecter</button>
+              @if (auth.has('PLAN_WRITE') && x.member.status !== 'RADIE' && x.member.status !== 'REFUSE' && x.member.id !== auth.user()?.memberId) {
+                @if (plans().length) {
+                  <span class="row wrap">
+                    <select [(ngModel)]="planId" aria-label="Plan à affecter" class="inline-select">
+                      <option [ngValue]="null" disabled>Choisir un plan…</option>
+                      @for (p of plans(); track p.id) { <option [ngValue]="p.id">{{ p.name }} — {{ p.amount | money }}</option> }</select>
+                    <button type="button" class="btn small primary" [disabled]="!planId || planId === x.member.contributionPlanId"
+                      (click)="assignPlan(x.member)">{{ x.member.contributionPlanId ? 'Changer de plan' : 'Affecter ce plan' }}</button>
+                  </span>
+                } @else { <br /><small class="muted">Aucun plan actif : créez-en un dans <a routerLink="/bureau/cotisations">Cotisations</a>.</small> }
+              } @else if (!x.member.contributionPlanId && x.member.status === 'EN_ATTENTE') {
+                <br /><small class="muted">Le plan est choisi lors de l’approbation, ou affecté à l’avance par la trésorerie.</small>
               }</dd>
             @if (x.member.notes) { <dt>Notes internes</dt><dd class="pre">{{ x.member.notes }}</dd> }
           </dl>
@@ -220,12 +228,19 @@ export class MemberDetail implements OnInit {
     }, (e) => this.toasts.error(e));
   }
 
-  assignPlan(): void {
-    if (!this.planId) return;
-    this.api.post(`/members/${this.id()}/plan`, { planId: this.planId }).subscribe({
-      next: () => { this.toasts.success('Plan affecté. Les prochaines échéances suivront ce plan.'); this.load(); },
-      error: (e) => this.toasts.error(e),
+  async assignPlan(m: MemberResponse): Promise<void> {
+    const plan = this.plans().find((p) => p.id === this.planId);
+    if (!plan) return;
+    const ok = await this.dialogs.ask({
+      title: m.contributionPlanId ? `Changer le plan de ${m.firstName} ${m.lastName}` : `Affecter un plan à ${m.firstName} ${m.lastName}`,
+      message: `Nouveau plan : ${plan.name} (${formatMoney(plan.amount)}). Les prochaines échéances suivront ce plan ; les échéances déjà générées ne changent pas.`,
+      confirmLabel: m.contributionPlanId ? 'Changer de plan' : 'Affecter ce plan',
     });
+    if (ok === null) return;
+    this.busy.run(this.api.post(`/members/${m.id}/plan`, { planId: plan.id }), () => {
+      this.toasts.success('Plan affecté. Les prochaines échéances suivront ce plan.');
+      this.load();
+    }, (e) => this.toasts.error(e));
   }
 
   async adjust(o: ObligationResponse): Promise<void> {

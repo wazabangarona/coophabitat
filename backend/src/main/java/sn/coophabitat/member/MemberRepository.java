@@ -31,8 +31,9 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
                    or lower(m.email) like lower(concat('%', cast(:q as string), '%')))
               and (:status is null or m.status = :status)
               and (:type is null or m.memberType = :type)
+              and (:withoutPlan = false or m.contributionPlanId is null)
             """)
-    Page<Member> search(String q, MemberStatus status, MemberType type, Pageable pageable);
+    Page<Member> search(String q, MemberStatus status, MemberType type, boolean withoutPlan, Pageable pageable);
 
     List<Member> findByStatusIn(Collection<MemberStatus> statuses);
 

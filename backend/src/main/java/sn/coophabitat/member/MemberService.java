@@ -61,8 +61,8 @@ public class MemberService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Member> search(String q, MemberStatus status, MemberType type, Pageable pageable) {
-        return members.search(q == null || q.isBlank() ? null : q.trim(), status, type, pageable);
+    public Page<Member> search(String q, MemberStatus status, MemberType type, boolean withoutPlan, Pageable pageable) {
+        return members.search(q == null || q.isBlank() ? null : q.trim(), status, type, withoutPlan, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -208,11 +208,7 @@ public class MemberService {
             bootstrap = true;
         }
         if (r.planId() != null && !r.planId().equals(m.getContributionPlanId())) {
-            ContributionPlan plan = requireActivePlan(r.planId());
-            Long previous = m.getContributionPlanId();
-            m.setContributionPlanId(plan.getId());
-            audit.record(AuditCategory.FINANCE, "PLAN_AFFECTE", "Member", id,
-                    Map.of("ancien_plan", String.valueOf(previous), "nouveau_plan", plan.getCode()));
+            setPlan(m, requireActivePlan(r.planId()));
         } else if (m.getContributionPlanId() != null) {
             requireActivePlan(m.getContributionPlanId());
         }
@@ -347,14 +343,53 @@ public class MemberService {
     }
 
     @Transactional
-    public Member assignPlan(Long id, Long planId) {
+    public Member assignPlan(Long id, Long planId, CurrentUser actor) {
+        if (actor != null && actor.isMember(id)) {
+            throw BusinessException.forbidden("Votre propre plan de cotisation est affecté par un autre membre du bureau");
+        }
         Member m = get(id);
         ContributionPlan plan = requireActivePlan(planId);
-        Long previous = m.getContributionPlanId();
-        m.setContributionPlanId(plan.getId());
-        audit.record(AuditCategory.FINANCE, "PLAN_AFFECTE", "Member", id,
-                Map.of("ancien_plan", String.valueOf(previous), "nouveau_plan", plan.getCode()));
+        if (m.getStatus() == MemberStatus.RADIE || m.getStatus() == MemberStatus.REFUSE) {
+            throw BusinessException.rule("PLAN_IMPOSSIBLE", "Aucun plan ne s'affecte à un membre radié ou à une demande refusée");
+        }
+        setPlan(m, plan);
         return m;
+    }
+
+    /**
+     * Affectation groupée d'un plan (par exemple tous les membres encore sans plan). Les membres radiés, les demandes
+     * refusées, le dossier de l'utilisateur lui-même et ceux qui ont déjà ce plan sont laissés tels quels ; chaque
+     * affectation est journalisée séparément.
+     */
+    @Transactional
+    public BulkPlanResult assignPlan(List<Long> ids, Long planId, CurrentUser actor) {
+        ContributionPlan plan = requireActivePlan(planId);
+        int updated = 0;
+        int unchanged = 0;
+        int excluded = 0;
+        for (Long id : new java.util.LinkedHashSet<>(ids)) {
+            Member m = get(id);
+            if (m.getStatus() == MemberStatus.RADIE || m.getStatus() == MemberStatus.REFUSE
+                    || (actor != null && actor.isMember(id))) {
+                excluded++;
+            } else if (plan.getId().equals(m.getContributionPlanId())) {
+                unchanged++;
+            } else {
+                setPlan(m, plan);
+                updated++;
+            }
+        }
+        return new BulkPlanResult(updated, unchanged, excluded);
+    }
+
+    private void setPlan(Member m, ContributionPlan plan) {
+        Long previous = m.getContributionPlanId();
+        if (plan.getId().equals(previous)) {
+            return;
+        }
+        m.setContributionPlanId(plan.getId());
+        audit.record(AuditCategory.FINANCE, "PLAN_AFFECTE", "Member", m.getId(),
+                Map.of("ancien_plan", String.valueOf(previous), "nouveau_plan", plan.getCode()));
     }
 
     @Transactional(readOnly = true)

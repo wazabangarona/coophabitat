@@ -230,6 +230,17 @@ export interface BudgetResponse {
   committedExpense?: number;
 }
 
+export interface BulkPlanRequest {
+  memberIds: number[];
+  planId: number;
+}
+
+export interface BulkPlanResult {
+  updated?: number;
+  unchanged?: number;
+  excluded?: number;
+}
+
 export interface BureauHolder {
   userId?: number;
   displayName?: string;
@@ -809,6 +820,7 @@ export interface MemberListItem {
   memberType?: "FONDATEUR" | "ORDINAIRE" | "BENEFICIAIRE";
   status?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE" | "REFUSE";
   membershipDate?: string;
+  contributionPlanId?: number;
   demo?: boolean;
 }
 
