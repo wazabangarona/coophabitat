@@ -33,6 +33,7 @@ import { Banners } from './banners';
               <a class="btn primary small" [routerLink]="auth.homeUrl()">Mon espace<app-icon name="arrow-right" /></a>
             } @else {
               <a class="btn small" routerLink="/connexion">Se connecter</a>
+              @if (info.registrationOpen()) { <a class="btn primary small" routerLink="/inscription">Adhérer</a> }
             }
           </span>
         </nav>

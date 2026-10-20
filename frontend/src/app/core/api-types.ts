@@ -1040,6 +1040,7 @@ export interface PublicInfo {
   environment?: string;
   paymentSimulationEnabled?: boolean;
   demoData?: boolean;
+  registrationOpen?: boolean;
 }
 
 export interface PublicProject {

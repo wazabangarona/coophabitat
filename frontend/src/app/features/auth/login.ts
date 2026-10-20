@@ -38,6 +38,9 @@ import { Icon, Photo } from '../../ui/components';
             <a routerLink="/mot-de-passe-oublie">Mot de passe oublié ?</a>
             <a routerLink="/verification-recu">Vérifier un reçu</a>
           </div>
+          @if (info.registrationOpen()) {
+            <p class="auth-signup">Pas encore de compte ? <a routerLink="/inscription">Demander mon adhésion</a></p>
+          }
           <p class="auth-foot"><app-icon name="lock" />Après plusieurs échecs, le compte est temporairement verrouillé pour le protéger.</p>
         </div>
       </section>

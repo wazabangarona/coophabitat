@@ -49,6 +49,14 @@ export const MEMBER_TYPES = ['FONDATEUR', 'ORDINAIRE', 'BENEFICIAIRE'];
       </section>
     }
 
+    @if (pending() > 0 && status !== 'EN_ATTENTE') {
+      <div class="alert row between" data-tone="info" role="status">
+        <span><strong>{{ pending() }} dossier(s) d’adhésion en attente</strong> (créés par le bureau ou demandés en ligne).
+          Ouvrez une fiche pour vérifier l’identité, affecter un plan de cotisation, puis activer l’adhésion.</span>
+        <button type="button" class="btn small" (click)="status = 'EN_ATTENTE'; go(0)">Afficher</button>
+      </div>
+    }
+
     <form class="filters" (ngSubmit)="go(0)">
       <label class="field inline"><span>Recherche</span><input type="search" name="q" [(ngModel)]="q" placeholder="Nom, numéro, ville…" /></label>
       <label class="field inline"><span>Statut</span>
@@ -83,6 +91,8 @@ export class Members implements OnInit {
   protected readonly plans = signal<PlanResponse[]>([]);
   protected readonly creating = signal(false);
   protected readonly page = signal(0);
+  /** Dossiers « en attente » (créés par le bureau ou demandés en ligne) à examiner. */
+  protected readonly pending = signal(0);
   protected readonly busy = new Busy();
   protected readonly statuses = MEMBER_STATUSES;
   protected readonly types = MEMBER_TYPES;
@@ -93,6 +103,8 @@ export class Members implements OnInit {
 
   ngOnInit(): void {
     this.go(0);
+    this.api.get<PageResponseMemberListItem>('/members', { status: 'EN_ATTENTE', page: 0, size: 1 })
+      .subscribe({ next: (r) => this.pending.set(r.totalElements ?? 0), error: () => undefined });
     if (this.auth.has('PLAN_READ')) this.api.get<PlanResponse[]>('/contributions/plans').subscribe((p) => this.plans.set(p.filter((x) => x.status !== 'ARCHIVE')));
   }
 

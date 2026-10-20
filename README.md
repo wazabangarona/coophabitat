@@ -48,6 +48,17 @@ COOPHABITAT_DEMO_PASSWORD='Demo-CoopHabitat-2026' scripts/demarrer-demo.sh
 Le site est publié sur le port **8090** par défaut. S'il est occupé, le script prend le premier port libre
 suivant et affiche l'adresse à ouvrir ; pour imposer un port : `COOPHABITAT_HTTP_PORT=9000 scripts/demarrer-demo.sh`.
 
+**Version officielle locale (vrais comptes, sans données fictives ni simulateur) :**
+
+```bash
+scripts/demarrer-officiel.sh vous@exemple.sn          # Linux / macOS
+powershell -ExecutionPolicy Bypass -File scripts\demarrer-officiel.ps1 -Admin vous@exemple.sn   # Windows
+```
+
+Elle tourne sur le port **8091**, à côté de la démonstration, avec ses propres données. Au premier lancement, le
+script crée `.env.officiel` (secrets aléatoires, à ne jamais partager) et affiche le lien d'activation à usage unique
+du premier administrateur. Voir [Demandes d'adhésion en ligne](#demandes-dadhésion-en-ligne).
+
 ---
 
 ## 1. Prérequis
@@ -212,6 +223,21 @@ Un paiement n'est **compté** qu'à l'état `CONFIRME`, atteint uniquement par :
 tolérance de 5 minutes) **et** confirmé par une relecture de l'état chez Wave ; une vérification d'état chez Wave
 lors de la réconciliation ; ou un encaissement manuel validé par une **seconde** personne. Une demande de paiement
 n'est jamais une preuve de paiement. Détails : [docs/paiements.md](docs/paiements.md).
+
+### Demandes d'adhésion en ligne
+
+Avec `COOPHABITAT_PUBLIC_REGISTRATION=true` (désactivé par défaut), le site affiche « Adhérer » et la page
+`/inscription`. La personne crée son compte, rattaché à un dossier de membre **en attente** ; elle peut se connecter
+mais, comme pour tout membre en attente, les paiements et les candidatures restent fermés. Le bureau voit les dossiers
+en attente sur la page Membres : la trésorerie affecte un plan de cotisation, puis la présidence ou le secrétariat
+active l'adhésion (changement de statut motivé et historisé). Une adresse ou un téléphone déjà inscrits reçoivent la
+même réponse qu'une demande acceptée, pour ne pas révéler qui est inscrit ; les demandes sont limitées à 5 par minute
+et par adresse IP.
+
+Mise en route d'une installation officielle : l'administrateur initial active son compte avec le lien affiché,
+renseigne le nom de la coopérative (Administration), puis attribue les rôles du bureau (Président, Trésorier,
+Secrétaire…) aux comptes concernés, après que ces personnes ont demandé leur adhésion. Sans serveur SMTP, la
+réinitialisation de mot de passe par courriel n'est pas disponible : configurer `COOPHABITAT_SMTP_*` pour l'ouvrir.
 
 ## 12. Déploiement
 

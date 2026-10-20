@@ -36,6 +36,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         } else if (path.startsWith("/api/v1/auth/")) {
             bucket = "session";
             max = 240;
+        } else if (path.startsWith("/api/v1/public/registration")) {
+            bucket = "registration";
+            max = 5;
         } else if (path.startsWith("/api/v1/public/receipts")) {
             bucket = "verify";
             max = 20;

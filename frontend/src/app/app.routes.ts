@@ -16,6 +16,7 @@ export const routes: Routes = [
       { path: 'verification-recu', title: t('Vérifier un reçu'), loadComponent: () => import('./features/public/receipt-verify').then((m) => m.ReceiptVerify) },
       { path: 'credits-photographiques', title: t('Crédits photographiques'), loadComponent: () => import('./features/public/photo-credits').then((m) => m.PhotoCredits) },
       { path: 'connexion', title: t('Connexion'), canActivate: [guestGuard], loadComponent: () => import('./features/auth/login').then((m) => m.Login) },
+      { path: 'inscription', title: t('Demande d’adhésion'), canActivate: [guestGuard], loadComponent: () => import('./features/auth/register').then((m) => m.Register) },
       { path: 'mot-de-passe-oublie', title: t('Mot de passe oublié'), loadComponent: () => import('./features/auth/forgot').then((m) => m.Forgot) },
       { path: 'reinitialisation', title: t('Nouveau mot de passe'), data: { mode: 'reset' }, loadComponent: () => import('./features/auth/set-password').then((m) => m.SetPassword) },
       { path: 'activation', title: t('Activation du compte'), data: { mode: 'invitation' }, loadComponent: () => import('./features/auth/set-password').then((m) => m.SetPassword) },

@@ -27,7 +27,7 @@
 
 .site-main { outline: none; }
 /* Pages publiques secondaires : même gabarit, sans que chaque page ait à le déclarer. */
-.site-main > :not(router-outlet, app-home, app-login) { display: block; max-width: var(--w-site); margin: 0 auto; padding: var(--sp-10) var(--gutter) var(--sp-16); }
+.site-main > :not(router-outlet, app-home, app-login, app-register) { display: block; max-width: var(--w-site); margin: 0 auto; padding: var(--sp-10) var(--gutter) var(--sp-16); }
 .site-main > :is(app-forgot, app-set-password, app-receipt-verify, app-not-found, app-access-denied) { max-width: calc(var(--w-form) + 2 * var(--gutter)); }
 .site-main .card.narrow { padding: var(--sp-8); }
 @media (max-width: $bp-sm) { .site-main .card.narrow { padding: var(--sp-5); } }
@@ -170,6 +170,8 @@
 .auth-card > .lead-sm { color: var(--c-muted); font-size: var(--fs-sm); margin-bottom: var(--sp-8); }
 .auth-card form { margin-bottom: var(--sp-5); }
 .auth-card .btn.block { min-height: 46px; margin-top: var(--sp-2); }
+.auth-signup { margin: var(--sp-5) 0 0; padding: var(--sp-4); border-radius: var(--r-md); background: var(--c-primary-soft); font-size: var(--fs-sm); color: var(--c-text); }
+.auth-signup a { font-weight: var(--fw-semibold); }
 .auth-links { display: flex; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-sm); }
 .auth-foot { margin-top: var(--sp-8); padding-top: var(--sp-5); border-top: var(--line); font-size: var(--fs-xs); color: var(--c-muted); display: flex; gap: var(--sp-2); }
 .auth-foot .icon { width: 15px; height: 15px; flex: none; margin-top: 1px; color: var(--c-subtle); }

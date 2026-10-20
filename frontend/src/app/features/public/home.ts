@@ -168,7 +168,11 @@ import { LabelPipe, NumPipe } from '../../ui/pipes';
         </div>
         <div class="hero-actions">
           <a class="btn primary large" routerLink="/connexion">Se connecter</a>
-          <a class="btn large" routerLink="/documents-publics">Documents publics</a>
+          @if (info.registrationOpen()) {
+            <a class="btn large" routerLink="/inscription">Demander mon adhésion</a>
+          } @else {
+            <a class="btn large" routerLink="/documents-publics">Documents publics</a>
+          }
         </div>
       </div>
     </section>

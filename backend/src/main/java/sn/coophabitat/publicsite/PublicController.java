@@ -11,6 +11,7 @@ import sn.coophabitat.admin.CoopSettingsRepository;
 import sn.coophabitat.common.BusinessException;
 import sn.coophabitat.config.AppProperties;
 import sn.coophabitat.member.MemberRepository;
+import sn.coophabitat.member.RegistrationService;
 import sn.coophabitat.member.MemberStatus;
 import sn.coophabitat.property.LotStatus;
 import sn.coophabitat.property.PropertyLotRepository;
@@ -29,9 +30,11 @@ public class PublicController {
     private final PropertyLotRepository lots;
     private final PropertyProjectRepository projects;
     private final AppProperties props;
+    private final RegistrationService registration;
 
     public PublicController(CoopSettingsRepository settings, MemberRepository members, PropertyLotRepository lots,
-                            PropertyProjectRepository projects, AppProperties props) {
+                            PropertyProjectRepository projects, AppProperties props, RegistrationService registration) {
+        this.registration = registration;
         this.settings = settings;
         this.members = members;
         this.lots = lots;
@@ -41,7 +44,8 @@ public class PublicController {
 
     public record PublicInfo(String name, String legalForm, String registrationNumber, String address, String city,
                              String phone, String email, String escrowStatement, boolean publicStatsAvailable,
-                             String environment, boolean paymentSimulationEnabled, boolean demoData) {
+                             String environment, boolean paymentSimulationEnabled, boolean demoData,
+                             boolean registrationOpen) {
     }
 
     public record PublicProject(String code, String name, String region, String departement, String commune,
@@ -59,7 +63,7 @@ public class PublicController {
                 s.getPhone(), s.getEmail(), s.isEscrowIntegrated() ? s.getEscrowStatement()
                 : "Fonds suivis comptablement — séquestre externe non vérifié ou non intégré",
                 s.isPublishPublicStats(), props.environment().name(), props.payment().mockEnabled() && !props.isProduction(),
-                s.isDemo());
+                s.isDemo(), registration.enabled());
     }
 
     @GetMapping("/projects")

@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { Api, saveBlob } from '../../core/api';
-import { MemberCampaignView, MemberFinancialSummary, ObligationResponse, PageResponseTransactionResponse, TransactionResponse } from '../../core/api-types';
+import { MemberCampaignView, MemberFinancialSummary, MemberResponse, ObligationResponse, PageResponseTransactionResponse, TransactionResponse } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Loader } from '../../core/loader';
 import { OfflineSnapshot, Snapshot } from '../../core/offline';
@@ -26,6 +26,14 @@ interface HomeData {
       <div class="alert" data-tone="offline" role="status">
         <strong>Copie locale du {{ s.savedAt | when }}.</strong> Vous êtes hors ligne ou le serveur est injoignable :
         ces chiffres peuvent avoir changé depuis et ne constituent pas une situation financière à jour.
+      </div>
+    }
+
+    @if (profile.data()?.status === 'EN_ATTENTE') {
+      <div class="alert" data-tone="info" role="status">
+        <strong>Votre demande d’adhésion est en cours d’examen.</strong> Le bureau de la coopérative doit activer votre
+        adhésion avant que vous puissiez payer des cotisations ou candidater à une attribution. Vous pouvez déjà consulter
+        les documents et compléter vos coordonnées dans <a routerLink="/compte">Mon compte</a>.
       </div>
     }
 
@@ -144,6 +152,8 @@ export class MemberHome implements OnInit {
   );
   /** Chargés séparément : leur indisponibilité ne doit pas masquer la situation de cotisation. */
   protected readonly payments = new Loader<PageResponseTransactionResponse>();
+  /** Statut d'adhésion (une demande déposée en ligne reste « en attente » jusqu'à sa validation). */
+  protected readonly profile = new Loader<MemberResponse>();
   protected readonly summary = computed(() => this.data.data()?.summary ?? this.stale()?.summary ?? null);
   protected readonly openCampaigns = computed(() =>
     (this.data.data()?.campaigns ?? []).filter((c) => !['ARCHIVEE', 'ANNULEE', 'BROUILLON'].includes(c.status ?? '')),
@@ -162,6 +172,7 @@ export class MemberHome implements OnInit {
         campaigns: this.api.get<MemberCampaignView[]>('/allocations/me'),
       }),
     );
+    this.profile.load(() => this.api.get<MemberResponse>('/me/profile'));
     const memberId = this.auth.user()?.memberId;
     if (memberId) {
       this.payments.load(() =>

@@ -115,6 +115,9 @@ coophabitat:
     provider: ${COOPHABITAT_SMS_PROVIDER:none}
   accounting:
     double-approval-threshold: 500000
+  registration:
+    # Demandes d'adhésion en ligne : la personne crée son compte, le bureau active ensuite l'adhésion.
+    enabled: ${COOPHABITAT_PUBLIC_REGISTRATION:false}
   demo:
     enabled: ${COOPHABITAT_DEMO_ENABLED:false}
     password: ${COOPHABITAT_DEMO_PASSWORD:}

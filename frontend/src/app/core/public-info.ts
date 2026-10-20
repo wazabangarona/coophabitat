@@ -12,6 +12,8 @@ export class PublicInfoStore {
   readonly info = signal<PublicInfo | null>(null);
   readonly demo = computed(() => this.info()?.demoData === true);
   readonly simulation = computed(() => this.info()?.paymentSimulationEnabled === true);
+  /** Demandes d'adhésion en ligne ouvertes (création de compte par la personne elle-même). */
+  readonly registrationOpen = computed(() => this.info()?.registrationOpen === true);
   readonly escrow = computed(() => this.info()?.escrowStatement || ESCROW_DEFAULT);
   readonly name = computed(() => this.info()?.name || 'CoopHabitat');
 
