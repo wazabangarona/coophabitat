@@ -37,4 +37,6 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     List<Member> findByStatusIn(Collection<MemberStatus> statuses);
 
     long countByStatus(MemberStatus status);
+
+    List<Member> findByStatusOrderByCreatedAtAsc(MemberStatus status);
 }

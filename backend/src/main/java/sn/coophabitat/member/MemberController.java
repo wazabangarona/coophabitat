@@ -51,6 +51,27 @@ public class MemberController {
         return PageResponse.of(service.search(q, status, type, pageable), MemberListItem::of);
     }
 
+    @GetMapping("/applications")
+    @PreAuthorize("hasAuthority('MEMBER_READ_ALL')")
+    @Operation(summary = "Demandes d'adhésion à examiner (dossiers en attente), les plus anciennes d'abord")
+    public ApplicationQueue applications() {
+        return service.applications(CurrentUserProvider.require());
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('MEMBER_STATUS_CHANGE')")
+    @Operation(summary = "Approuver une demande d'adhésion : affectation du plan et activation en une décision tracée")
+    public MemberResponse approve(@PathVariable Long id, @Valid @RequestBody ApprovalRequest body) {
+        return MemberResponse.of(service.approve(id, body, CurrentUserProvider.require()), service.hasAccount(id));
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('MEMBER_STATUS_CHANGE')")
+    @Operation(summary = "Refuser une demande d'adhésion (motif obligatoire, notifié à la personne)")
+    public MemberResponse reject(@PathVariable Long id, @Valid @RequestBody RejectionRequest body) {
+        return MemberResponse.of(service.reject(id, body, CurrentUserProvider.require()), service.hasAccount(id));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('MEMBER_READ_ALL')")
     public MemberResponse get(@PathVariable Long id) {

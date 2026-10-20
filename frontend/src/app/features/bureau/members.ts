@@ -9,7 +9,12 @@ import { Toasts } from '../../core/toast';
 import { Badge, PageHeader, Pager, StateView } from '../../ui/components';
 import { DayPipe, LabelPipe } from '../../ui/pipes';
 
-export const MEMBER_STATUSES = ['EN_ATTENTE', 'ACTIF', 'SUSPENDU', 'RADIE'];
+export const MEMBER_STATUSES = ['EN_ATTENTE', 'ACTIF', 'SUSPENDU', 'RADIE', 'REFUSE'];
+
+/** Transitions de statut proposées sur la fiche (mêmes règles que le serveur ; une demande en attente se traite dans la file). */
+export const STATUS_TARGETS: Record<string, string[]> = {
+  EN_ATTENTE: [], ACTIF: ['SUSPENDU', 'RADIE'], SUSPENDU: ['ACTIF', 'RADIE'], REFUSE: ['EN_ATTENTE'], RADIE: [],
+};
 export const MEMBER_TYPES = ['FONDATEUR', 'ORDINAIRE', 'BENEFICIAIRE'];
 
 @Component({
@@ -45,15 +50,16 @@ export const MEMBER_TYPES = ['FONDATEUR', 'ORDINAIRE', 'BENEFICIAIRE'];
           <div class="span-2 row"><button type="button" class="btn" (click)="creating.set(false)">Annuler</button>
             <button class="btn primary" [disabled]="f.invalid || busy.on()">Enregistrer l’adhésion</button></div>
         </form>
-        <p class="muted small">Le membre est créé « en attente » ; son activation est une décision tracée.</p>
+        <p class="muted small">Le membre est créé « en attente » : il rejoint les <a routerLink="/bureau/adhesions">demandes d’adhésion</a>,
+          où son activation est une décision tracée.</p>
       </section>
     }
 
-    @if (pending() > 0 && status !== 'EN_ATTENTE') {
+    @if (pending() > 0) {
       <div class="alert row between" data-tone="info" role="status">
-        <span><strong>{{ pending() }} dossier(s) d’adhésion en attente</strong> (créés par le bureau ou demandés en ligne).
-          Ouvrez une fiche pour vérifier l’identité, affecter un plan de cotisation, puis activer l’adhésion.</span>
-        <button type="button" class="btn small" (click)="status = 'EN_ATTENTE'; go(0)">Afficher</button>
+        <span><strong>{{ pending() }} demande(s) d’adhésion en attente</strong> (déposées en ligne ou saisies par le bureau).
+          Elles se traitent sur une seule page : vérification, choix du plan, puis approbation ou refus motivé.</span>
+        <a class="btn small primary" routerLink="/bureau/adhesions">Examiner les demandes</a>
       </div>
     }
 

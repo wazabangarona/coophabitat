@@ -2,10 +2,10 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { Api } from '../../core/api';
-import { CoopSettings, DataRequestResponse, DataRetentionPolicy, PageResponseUserResponse, RoleResponse, UserResponse } from '../../core/api-types';
+import { BureauHolder, BureauSetup, CoopSettings, DataRequestResponse, DataRetentionPolicy, PageResponseUserResponse, RoleResponse, UserResponse } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Dialogs } from '../../core/dialog';
-import { ROLE_LABELS } from '../../core/labels';
+import { ROLE_LABELS, label } from '../../core/labels';
 import { Busy, Loader } from '../../core/loader';
 import { Toasts } from '../../core/toast';
 import { Badge, PageHeader, Pager, StateView } from '../../ui/components';
@@ -24,6 +24,32 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
 
     @switch (tab()) {
       @case ('comptes') {
+        @if (setup.data(); as b) {
+          <section class="card setup">
+            <h2>Mise en route du bureau</h2>
+            <p class="small muted">Les adhésions sont validées par la présidence ou le secrétariat, la trésorerie gère les plans de cotisation.
+              En tant qu’administrateur technique, vous désignez ces personnes ; vous ne validez pas vous-même les adhésions.</p>
+            <ol class="checklist">
+              <li [class.done]="b.presidents?.length || b.secretaries?.length || b.treasurers?.length">
+                <strong>Les futurs responsables déposent leur demande d’adhésion</strong> avec le bouton « Adhérer » du site
+                (ou vous leur créez un compte ci-dessous).</li>
+              @for (f of functions; track f.key) {
+                <li [class.done]="holders(b, f.key).length">
+                  <strong>{{ f.label }} :</strong>{{ ' ' }}
+                  @for (h of holders(b, f.key); track h.userId) {
+                    <span class="chip">{{ h.displayName }} · {{ holderState(h) }}</span>
+                  } @empty { <span class="muted">non désigné — recherchez la personne ci-dessous puis « Modifier les rôles ».</span> }
+                </li>
+              }
+              <li [class.done]="(b.activePlans ?? 0) > 0"><strong>Plan de cotisation actif :</strong>{{ ' ' }}
+                {{ (b.activePlans ?? 0) > 0 ? b.activePlans + ' plan(s) actif(s)' : 'aucun — la trésorerie le crée dans Cotisations.' }}</li>
+              <li [class.done]="b.approverInPlace"><strong>Validation des adhésions :</strong>{{ ' ' }}
+                @if (b.approverInPlace) { un responsable est en place ; {{ b.pendingApplications }} demande(s) en attente. }
+                @else { le premier président ou secrétaire désigné valide sa propre adhésion, puis celles des autres
+                  (page « Demandes d’adhésion »). }</li>
+            </ol>
+          </section>
+        }
         <form class="card grid-2" (ngSubmit)="createUser()" #uf="ngForm">
           <h2 class="span-2">Créer un compte</h2>
           <label class="field"><span>Adresse électronique</span><input type="email" name="e" [(ngModel)]="nu.email" required email /></label>
@@ -44,7 +70,8 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
                 <div class="row"><span class="badge" [attr.data-tone]="u.enabled ? 'ok' : 'bad'">{{ u.enabled ? 'Actif' : 'Désactivé' }}</span>
                   @if (!u.activated) { <span class="badge" data-tone="warn">Invitation non acceptée</span> }
                   @if (u.lockedUntil) { <span class="badge" data-tone="warn">Verrouillé jusqu’au {{ u.lockedUntil | when }}</span> }</div></div>
-              <p class="small">Rôles : @for (r of u.roles; track r) { <span class="chip">{{ roleLabel(r) }}</span> } — dernière connexion {{ u.lastLoginAt | when }}</p>
+              <p class="small">Rôles : @for (r of u.roles; track r) { <span class="chip">{{ roleLabel(r) }}</span> } — dernière connexion {{ u.lastLoginAt | when }}
+                @if (u.memberStatus) { — adhésion {{ u.memberNumber }} : <app-badge [value]="u.memberStatus" /> }</p>
               @if (u.id !== auth.user()?.id) {
                 @if (editing() === u.id) {
                   <fieldset class="field"><legend>Rôles</legend>@for (r of roles(); track r.code) {
@@ -107,6 +134,10 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
       }
     }
   `,
+  styles: `
+    .checklist { margin: 0; padding-left: 1.25rem; display: grid; gap: .45rem; }
+    .checklist li.done::marker { content: '✓  '; color: var(--ok, #2f7d4f); }
+  `,
 })
 export class Admin implements OnInit {
   protected readonly auth = inject(Auth);
@@ -123,6 +154,12 @@ export class Admin implements OnInit {
   protected readonly settings = new Loader<CoopSettings>((s) => (this.st = { name: s.name ?? '', legalForm: s.legalForm ?? '', registrationNumber: s.registrationNumber ?? '',
     address: s.address ?? '', city: s.city ?? '', phone: s.phone ?? '', email: s.email ?? '', publishPublicStats: !!s.publishPublicStats }));
   protected readonly requests = new Loader<DataRequestResponse[]>();
+  protected readonly setup = new Loader<BureauSetup>();
+  protected readonly functions = [
+    { key: 'presidents', label: 'Présidence' },
+    { key: 'secretaries', label: 'Secrétariat' },
+    { key: 'treasurers', label: 'Trésorerie' },
+  ] as const;
   protected readonly roles = signal<RoleResponse[]>([]);
   protected readonly retention = signal<DataRetentionPolicy[]>([]);
   protected readonly editing = signal<number | null>(null);
@@ -137,11 +174,22 @@ export class Admin implements OnInit {
     this.tab.set(this.tabs()[0]?.key ?? 'comptes');
     if (this.auth.has('USER_ADMIN')) {
       this.goUsers(0);
+      this.setup.load(() => this.api.get<BureauSetup>('/admin/bureau-setup'));
       this.api.get<RoleResponse[]>('/admin/roles').subscribe((r) => this.roles.set(r));
     }
     if (this.auth.has('SETTINGS_ADMIN')) this.settings.load(() => this.api.get<CoopSettings>('/admin/settings'));
     if (this.auth.hasAny('SETTINGS_ADMIN', 'DATA_REQUEST_HANDLE')) this.api.get<DataRetentionPolicy[]>('/admin/retention-policies').subscribe((r) => this.retention.set(r));
     if (this.auth.has('DATA_REQUEST_HANDLE')) this.requests.load(() => this.api.get<DataRequestResponse[]>('/admin/data-requests'));
+  }
+
+  holders(b: BureauSetup, key: 'presidents' | 'secretaries' | 'treasurers'): BureauHolder[] {
+    return b[key] ?? [];
+  }
+
+  holderState(h: BureauHolder): string {
+    if (!h.activated) return 'invitation non acceptée';
+    if (!h.memberStatus) return 'compte du bureau';
+    return h.memberStatus === 'ACTIF' ? 'adhésion active' : 'adhésion ' + label(h.memberStatus).toLowerCase();
   }
 
   roleLabel(code?: string): string {
@@ -174,6 +222,7 @@ export class Admin implements OnInit {
     this.run(this.api.put(`/admin/users/${u.id}/roles`, { roles: this.editRoles }), 'Rôles modifiés ; les sessions de la personne sont fermées.', () => {
       this.editing.set(null);
       this.users.reload();
+      this.setup.reload();
     });
   }
 

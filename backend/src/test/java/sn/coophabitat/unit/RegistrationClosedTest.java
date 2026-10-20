@@ -14,7 +14,7 @@ class RegistrationClosedTest {
 
     @Test
     void registrationIsClosedByDefault() {
-        RegistrationService closed = new RegistrationService(false, null, null, null, null, null, null, null);
+        RegistrationService closed = new RegistrationService(false, null, null, null, null, null, null, null, null, null);
         assertThat(closed.enabled()).isFalse();
         assertThatThrownBy(() -> closed.register(new RegistrationRequest("Awa", "Diop", "awa@test.invalid", null, null,
                 "phrase-secrete-assez-longue", true)))

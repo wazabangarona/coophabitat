@@ -56,6 +56,7 @@ export const routes: Routes = [
         children: [
           { path: '', title: t('Tableau de bord'), canActivate: [permissionGuard('DASHBOARD_BUREAU')], loadComponent: () => import('./features/bureau/dashboard').then((m) => m.BureauDashboard) },
           { path: 'membres', title: t('Membres'), canActivate: [permissionGuard('MEMBER_READ_ALL')], loadComponent: () => import('./features/bureau/members').then((m) => m.Members) },
+          { path: 'adhesions', title: t('Demandes d’adhésion'), canActivate: [permissionGuard('MEMBER_READ_ALL')], loadComponent: () => import('./features/bureau/applications').then((m) => m.Applications) },
           { path: 'membres/:id', title: t('Fiche membre'), canActivate: [permissionGuard('MEMBER_READ_ALL')], loadComponent: () => import('./features/bureau/member-detail').then((m) => m.MemberDetail) },
           { path: 'cotisations', title: t('Cotisations'), canActivate: [permissionGuard('PLAN_READ')], loadComponent: () => import('./features/bureau/plans').then((m) => m.Plans) },
           { path: 'paiements', title: t('Paiements'), canActivate: [permissionGuard('PAYMENT_READ_ALL')], loadComponent: () => import('./features/bureau/payments').then((m) => m.BureauPayments) },

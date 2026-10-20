@@ -10,8 +10,12 @@ import sn.coophabitat.audit.AuditCategory;
 import sn.coophabitat.audit.AuditService;
 import sn.coophabitat.common.BusinessException;
 import sn.coophabitat.common.ReferenceGenerator;
+import sn.coophabitat.contribution.ContributionPlanRepository;
+import sn.coophabitat.contribution.PlanStatus;
 import sn.coophabitat.member.Member;
 import sn.coophabitat.member.MemberRepository;
+import sn.coophabitat.member.MemberService;
+import sn.coophabitat.member.MemberStatus;
 import sn.coophabitat.security.*;
 
 import java.time.Clock;
@@ -39,14 +43,19 @@ public class AdminService {
     private final ReferenceGenerator references;
     private final JdbcTemplate jdbc;
     private final AuditService audit;
+    private final MemberService memberService;
+    private final ContributionPlanRepository plans;
     private final Clock clock;
 
     public AdminService(UserAccountRepository users, MemberRepository members, AuthService auth,
                         PermissionResolver permissions, CoopSettingsRepository settings,
                         DataSubjectRequestRepository dataRequests, DataRetentionPolicyRepository retention,
-                        ReferenceGenerator references, JdbcTemplate jdbc, AuditService audit, Clock clock) {
+                        ReferenceGenerator references, JdbcTemplate jdbc, AuditService audit, MemberService memberService,
+                        ContributionPlanRepository plans, Clock clock) {
         this.users = users;
         this.members = members;
+        this.memberService = memberService;
+        this.plans = plans;
         this.auth = auth;
         this.permissions = permissions;
         this.settings = settings;
@@ -148,8 +157,28 @@ public class AdminService {
     }
 
     public UserResponse toResponse(UserAccount u) {
+        Member m = u.getMemberId() == null ? null : members.findById(u.getMemberId()).orElse(null);
         return new UserResponse(u.getId(), u.getEmail(), u.getDisplayName(), u.isEnabled(), u.getPasswordHash() != null,
-                new TreeSet<>(u.getRoles()), u.getMemberId(), u.getLastLoginAt(), u.getLockedUntil(), u.isDemo(), u.getCreatedAt());
+                new TreeSet<>(u.getRoles()), u.getMemberId(), m == null ? null : m.getMemberNumber(),
+                m == null ? null : m.getStatus().name(), u.getLastLoginAt(), u.getLockedUntil(), u.isDemo(), u.getCreatedAt());
+    }
+
+    /** État de la mise en route du bureau, pour guider l'administrateur sur une installation neuve. */
+    @Transactional(readOnly = true)
+    public BureauSetup bureauSetup() {
+        return new BureauSetup(holders("PRESIDENT"), holders("TRESORIER"), holders("SECRETAIRE"),
+                memberService.hasEstablishedApproverOtherThan(-1L),
+                plans.findAll().stream().filter(p -> p.getStatus() == PlanStatus.ACTIF).count(),
+                members.countByStatus(MemberStatus.EN_ATTENTE));
+    }
+
+    private List<BureauHolder> holders(String role) {
+        return users.findActiveByRoles(List.of(role)).stream()
+                .sorted(Comparator.comparing(UserAccount::getDisplayName))
+                .map(u -> new BureauHolder(u.getId(), u.getDisplayName(), u.getEmail(), u.getPasswordHash() != null,
+                        u.getMemberId() == null ? null
+                                : members.findById(u.getMemberId()).map(x -> x.getStatus().name()).orElse(null)))
+                .toList();
     }
 
     private void validateRoles(Set<String> roles) {

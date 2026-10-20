@@ -16,7 +16,10 @@ import sn.coophabitat.common.BusinessException;
 import sn.coophabitat.member.MemberDtos.CreateMemberRequest;
 import sn.coophabitat.member.MemberDtos.MemberResponse;
 import sn.coophabitat.member.MemberDtos.CreatedMember;
+import sn.coophabitat.notification.NotificationService;
 import sn.coophabitat.security.PasswordPolicy;
+import sn.coophabitat.security.Permission;
+import sn.coophabitat.security.PermissionResolver;
 import sn.coophabitat.security.RoleCode;
 import sn.coophabitat.security.UserAccount;
 import sn.coophabitat.security.UserAccountRepository;
@@ -24,6 +27,7 @@ import sn.coophabitat.security.UserAccountRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -56,11 +60,14 @@ public class RegistrationService {
     private final PasswordEncoder encoder;
     private final PasswordPolicy passwordPolicy;
     private final AuditService audit;
+    private final NotificationService notifications;
+    private final PermissionResolver permissions;
     private final Clock clock;
 
     public RegistrationService(@Value("${coophabitat.registration.enabled:false}") boolean enabled, MemberService members,
                                MemberRepository memberRepository, UserAccountRepository users, PasswordEncoder encoder,
-                               PasswordPolicy passwordPolicy, AuditService audit, Clock clock) {
+                               PasswordPolicy passwordPolicy, AuditService audit, NotificationService notifications,
+                               PermissionResolver permissions, Clock clock) {
         this.enabled = enabled;
         this.members = members;
         this.memberRepository = memberRepository;
@@ -68,6 +75,8 @@ public class RegistrationService {
         this.encoder = encoder;
         this.passwordPolicy = passwordPolicy;
         this.audit = audit;
+        this.notifications = notifications;
+        this.permissions = permissions;
         this.clock = clock;
     }
 
@@ -104,5 +113,21 @@ public class RegistrationService {
         u = users.save(u);
         audit.recordAs(AuditCategory.SECURITE, "INSCRIPTION_EN_LIGNE", "UserAccount", u.getId(),
                 Map.of("membre", m.memberNumber()), u.getId(), email);
+        notifyBureau(m);
+    }
+
+    /** Prévient, dans l'application, les responsables qui examinent les demandes (validation et plan de cotisation). */
+    private void notifyBureau(MemberResponse m) {
+        Set<String> roles = new HashSet<>(permissions.rolesWith(Permission.MEMBER_STATUS_CHANGE.name()));
+        roles.addAll(permissions.rolesWith(Permission.PLAN_WRITE.name()));
+        if (roles.isEmpty()) {
+            return;
+        }
+        for (UserAccount reviewer : users.findActiveByRoles(roles)) {
+            notifications.notifyUser(reviewer.getId(), "ADHESION_A_EXAMINER", "Nouvelle demande d'adhésion",
+                    m.firstName() + " " + m.lastName() + " (" + m.memberNumber() + ") a demandé à adhérer. "
+                            + "La demande est à examiner dans Membres › Demandes d'adhésion.",
+                    "ADHESION_A_EXAMINER:" + m.id() + ":" + reviewer.getId(), "Member", m.id());
+        }
     }
 }

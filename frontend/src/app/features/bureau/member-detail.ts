@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { Api, newIdempotencyKey } from '../../core/api';
 import {
@@ -13,7 +14,7 @@ import { label } from '../../core/labels';
 import { Toasts } from '../../core/toast';
 import { Badge, Kpi, PageHeader, SimBadge, StateView } from '../../ui/components';
 import { DayPipe, LabelPipe, MoneyPipe, WhenPipe, formatMoney } from '../../ui/pipes';
-import { MEMBER_STATUSES, MEMBER_TYPES } from './members';
+import { MEMBER_TYPES, STATUS_TARGETS } from './members';
 
 interface Data {
   member: MemberResponse;
@@ -25,16 +26,28 @@ interface Data {
 
 @Component({
   selector: 'app-member-detail',
-  imports: [FormsModule, PageHeader, StateView, Badge, Kpi, SimBadge, LabelPipe, MoneyPipe, DayPipe, WhenPipe],
+  imports: [FormsModule, RouterLink, PageHeader, StateView, Badge, Kpi, SimBadge, LabelPipe, MoneyPipe, DayPipe, WhenPipe],
   template: `
     <app-state [loading]="d.loading() && !d.data()" [error]="d.error()" (retry)="d.reload()">
       @if (d.data(); as x) {
         <app-page-header [title]="x.member.firstName + ' ' + x.member.lastName" [subtitle]="x.member.memberNumber + ' · ' + (x.member.memberType | label)"
           back="/bureau/membres" backLabel="Membres">
-          @if (auth.has('MEMBER_STATUS_CHANGE')) { <button type="button" class="btn small" (click)="statusForm.set(!statusForm())">Changer le statut</button> }
+          @if (auth.has('MEMBER_STATUS_CHANGE') && targets(x.member.status).length) {
+            <button type="button" class="btn small" (click)="st.status = targets(x.member.status)[0]; statusForm.set(!statusForm())">Changer le statut</button> }
           @if (auth.has('MEMBER_WRITE')) { <button type="button" class="btn small" (click)="editing.set(!editing())">Modifier</button> }
         </app-page-header>
         @if (x.member.demo) { <p class="alert" data-tone="demo">Membre fictif de démonstration.</p> }
+        @if (x.member.status === 'EN_ATTENTE') {
+          <div class="alert row between" data-tone="info" role="status">
+            <span><strong>Demande d’adhésion en attente.</strong> Elle s’approuve (avec le choix du plan de cotisation) ou se refuse
+              depuis la page des demandes.</span>
+            <a class="btn small primary" routerLink="/bureau/adhesions">Traiter la demande</a>
+          </div>
+        }
+        @if (x.member.status === 'REFUSE') {
+          <p class="alert" data-tone="warn">Demande d’adhésion refusée : l’accès en ligne est fermé. Pour la réexaminer, remettez-la
+            « en attente » avec « Changer le statut ».</p>
+        }
 
         <div class="kpis">
           <app-kpi label="Statut" [value]="label(x.member.status)" />
@@ -48,7 +61,7 @@ interface Data {
           <section class="card"><h2>Changer le statut</h2>
             <form class="grid-2" (ngSubmit)="changeStatus(x.member)" #sf="ngForm">
               <label class="field"><span>Nouveau statut</span><select name="s" [(ngModel)]="st.status" required>
-                @for (s of statuses; track s) { @if (s !== x.member.status) { <option [value]="s">{{ s | label }}</option> } }</select></label>
+                @for (s of targets(x.member.status); track s) { <option [value]="s">{{ s | label }}</option> }</select></label>
               <label class="field"><span>Motif et référence de la décision</span><input name="r" [(ngModel)]="st.reason" required minlength="5" /></label>
               <p class="span-2 muted small">Le changement est tracé dans l’historique et le journal d’audit ; il est notifié au membre.</p>
               <div class="span-2 row"><button type="button" class="btn" (click)="statusForm.set(false)">Annuler</button>
@@ -79,7 +92,7 @@ interface Data {
             <dt>Adresse</dt><dd>{{ x.member.address || '—' }} {{ x.member.city }}</dd><dt>Adhésion</dt><dd>{{ x.member.membershipDate | day }}</dd>
             <dt>Accès en ligne</dt><dd>{{ x.member.hasAccount ? 'Oui' : 'Non' }}</dd>
             <dt>Plan de cotisation</dt><dd>{{ x.summary.planName || 'Aucun' }}
-              @if (auth.has('MEMBER_WRITE') && plans().length) {
+              @if (auth.has('PLAN_WRITE') && plans().length) {
                 <select [(ngModel)]="planId" aria-label="Plan à affecter" class="inline-select">
                   @for (p of plans(); track p.id) { <option [ngValue]="p.id">{{ p.name }}</option> }</select>
                 <button type="button" class="btn small" (click)="assignPlan()">Affecter</button>
@@ -157,9 +170,11 @@ export class MemberDetail implements OnInit {
   protected readonly types = MEMBER_TYPES;
   protected readonly money = formatMoney;
   protected readonly label = label;
-  protected readonly statuses = MEMBER_STATUSES;
+  protected targets(status?: string): string[] {
+    return STATUS_TARGETS[status ?? ''] ?? [];
+  }
   protected readonly statusForm = signal(false);
-  protected st = { status: 'ACTIF', reason: '' };
+  protected st = { status: '', reason: '' };
   protected edit = { firstName: '', lastName: '', email: '', phone: '', address: '', city: '', memberType: 'ORDINAIRE', notes: '', version: 0 };
   protected planId: number | null = null;
   protected manualKey = newIdempotencyKey();
@@ -200,7 +215,7 @@ export class MemberDetail implements OnInit {
     this.busy.run(this.api.post(`/members/${m.id}/status`, this.st), () => {
       this.toasts.success('Statut modifié.');
       this.statusForm.set(false);
-      this.st = { status: 'ACTIF', reason: '' };
+      this.st = { status: '', reason: '' };
       this.load();
     }, (e) => this.toasts.error(e));
   }

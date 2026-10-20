@@ -83,7 +83,8 @@ class CommonTest {
     @Test
     void statusTransitions() {
         assertThat(MemberStatus.RADIE.allowedTargets()).isEmpty();
-        assertThat(MemberStatus.EN_ATTENTE.allowedTargets()).contains(MemberStatus.ACTIF);
+        assertThat(MemberStatus.EN_ATTENTE.allowedTargets()).containsExactlyInAnyOrder(MemberStatus.ACTIF, MemberStatus.REFUSE);
+        assertThat(MemberStatus.REFUSE.allowedTargets()).containsExactly(MemberStatus.EN_ATTENTE);
         assertThat(LotStatus.ATTRIBUE.manualTargets()).isEmpty();
         assertThat(LotStatus.DISPONIBLE.manualTargets()).doesNotContain(LotStatus.ATTRIBUE, LotStatus.RESERVE);
     }

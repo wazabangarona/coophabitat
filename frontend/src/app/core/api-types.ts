@@ -58,6 +58,30 @@ export interface AllocationResponse {
   reversal?: boolean;
 }
 
+export interface ApplicationItem {
+  id?: number;
+  memberNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  memberType?: "FONDATEUR" | "ORDINAIRE" | "BENEFICIAIRE";
+  membershipDate?: string;
+  createdAt?: string;
+  contributionPlanId?: number;
+  planName?: string;
+  hasAccount?: boolean;
+  online?: boolean;
+  self?: boolean;
+}
+
+export interface ApplicationQueue {
+  items?: ApplicationItem[];
+  canDecide?: boolean;
+  bootstrap?: boolean;
+}
+
 export interface ApprovalItem {
   approverId?: number;
   approverName?: string;
@@ -67,10 +91,8 @@ export interface ApprovalItem {
 }
 
 export interface ApprovalRequest {
-  step: "VALIDATION_LISTE" | "VALIDATION_PV" | "DECISION_COMMISSION" | "ANNULATION_RESULTAT";
-  decision: "APPROUVE" | "REFUSE";
+  planId?: number;
   comment?: string;
-  targetId?: number;
 }
 
 export interface ApprovalResponse {
@@ -206,6 +228,23 @@ export interface BudgetResponse {
   plannedExpense?: number;
   realizedExpense?: number;
   committedExpense?: number;
+}
+
+export interface BureauHolder {
+  userId?: number;
+  displayName?: string;
+  email?: string;
+  activated?: boolean;
+  memberStatus?: string;
+}
+
+export interface BureauSetup {
+  presidents?: BureauHolder[];
+  treasurers?: BureauHolder[];
+  secretaries?: BureauHolder[];
+  approverInPlace?: boolean;
+  activePlans?: number;
+  pendingApplications?: number;
 }
 
 export interface CampaignRequest {
@@ -768,7 +807,7 @@ export interface MemberListItem {
   fullName?: string;
   city?: string;
   memberType?: "FONDATEUR" | "ORDINAIRE" | "BENEFICIAIRE";
-  status?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE";
+  status?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE" | "REFUSE";
   membershipDate?: string;
   demo?: boolean;
 }
@@ -784,7 +823,7 @@ export interface MemberResponse {
   city?: string;
   membershipDate?: string;
   memberType?: "FONDATEUR" | "ORDINAIRE" | "BENEFICIAIRE";
-  status?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE";
+  status?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE" | "REFUSE";
   contributionPlanId?: number;
   notes?: string;
   demo?: boolean;
@@ -1132,6 +1171,20 @@ export interface RefundRequest {
   reason: string;
 }
 
+export interface RegistrationRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  city?: string;
+  password: string;
+  consent?: boolean;
+}
+
+export interface RejectionRequest {
+  reason: string;
+}
+
 export interface ReminderRun {
   runDate?: string;
   dueDate?: string;
@@ -1248,14 +1301,14 @@ export interface StatementLineResponse {
 }
 
 export interface StatusChangeRequest {
-  status: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE";
+  status: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE" | "REFUSE";
   reason: string;
 }
 
 export interface StatusHistoryItem {
   id?: number;
-  fromStatus?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE";
-  toStatus?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE";
+  fromStatus?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE" | "REFUSE";
+  toStatus?: "EN_ATTENTE" | "ACTIF" | "SUSPENDU" | "RADIE" | "REFUSE";
   reason?: string;
   changedBy?: number;
   changedAt?: string;
@@ -1337,6 +1390,8 @@ export interface UserResponse {
   activated?: boolean;
   roles?: string[];
   memberId?: number;
+  memberNumber?: string;
+  memberStatus?: string;
   lastLoginAt?: string;
   lockedUntil?: string;
   demo?: boolean;
