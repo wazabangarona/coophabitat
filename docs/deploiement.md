@@ -52,6 +52,20 @@ Les conditions changent souvent : les revérifier avant de choisir.
   automatiques **et** les sauvegardes de `scripts/backup.sh` copiées hors site, supervision de
   `/actuator/health/readiness`. La migration d'un hébergeur à l'autre se fait par sauvegarde/restauration.
 
+## 4 bis. Render (blueprint `render.yaml`)
+
+Le fichier `render.yaml` décrit la version officielle sur Render, région Francfort : base PostgreSQL 16 gérée,
+serveur Spring Boot en **service privé** avec disque persistant pour les documents, frontend nginx public qui relaie
+`/api` vers le service privé (variable `COOPHABITAT_API_HOSTPORT`, résolue à chaque requête). Environnement
+PRODUCTION, garde-fous actifs, adhésion en ligne ouverte (validée par le bureau), paiement Wave et SMTP désactivés.
+
+1. Render > **New > Blueprint**, choisir le dépôt et la branche.
+2. Renseigner `COOPHABITAT_PUBLIC_URL` (adresse du service `coophabitat`, par exemple `https://coophabitat.onrender.com`)
+   et `COOPHABITAT_BOOTSTRAP_ADMIN_EMAIL`.
+3. Après le premier déploiement, ouvrir les journaux de `coophabitat-api` et suivre le lien d'activation unique.
+
+Coût indicatif : environ 20 $/mois (offres Starter). Les offres gratuites ne conviennent pas (voir section 3).
+
 ## 4. Installation sur un serveur avec Docker
 
 ```bash

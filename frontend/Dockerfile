@@ -12,7 +12,11 @@ COPY frontend/ ./
 RUN npx ng build --configuration production
 
 FROM ${NGINX_IMAGE}
-COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY deploy/nginx/default.conf /etc/nginx/templates/default.conf.template
+# Adresse du serveur Spring Boot : le service « backend » de Docker Compose par défaut, surchargée sur Render.
+ENV COOPHABITAT_API_HOSTPORT=backend:8080 \
+    NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 \
+    NGINX_ENVSUBST_FILTER="^(COOPHABITAT_|NGINX_LOCAL_RESOLVERS)"
 COPY deploy/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /src/dist/frontend/browser /usr/share/nginx/html
 EXPOSE 8080

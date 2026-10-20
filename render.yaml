@@ -1,0 +1,85 @@
+# Blueprint Render de CoopHabitat — version officielle (environnement PRODUCTION, sans données de démonstration,
+# sans simulateur de paiement). Mise en place : Render > New > Blueprint, puis choisir ce dépôt.
+# Render demande à la création les deux valeurs marquées « sync: false » (adresse publique, courriel du premier
+# administrateur). Le lien d'activation de l'administrateur apparaît ensuite dans les journaux du service « coophabitat-api ».
+#
+# Coût indicatif (offres Starter, à revérifier) : 2 services à 7 $ + base basic-256mb à 6 $ + disque 1 Go ≈ 20 $/mois.
+# Les offres gratuites ne conviennent pas : base expirant après 30 jours, veille qui interrompt les tâches planifiées,
+# pas de disque persistant pour les documents, pas de service privé (voir docs/deploiement.md).
+
+databases:
+  - name: coophabitat-db
+    databaseName: coophabitat
+    user: coophabitat
+    plan: basic-256mb
+    region: frankfurt
+    postgresMajorVersion: "16"
+    ipAllowList: [] # accessible uniquement depuis les services Render du compte
+
+services:
+  # Serveur Spring Boot : service privé, joignable seulement par le frontend (comme dans Docker Compose).
+  - type: pserv
+    name: coophabitat-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    disk:
+      name: documents
+      mountPath: /data/documents
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: COOPHABITAT_ENVIRONMENT
+        value: PRODUCTION
+      - key: COOPHABITAT_DB_HOST
+        fromDatabase: { name: coophabitat-db, property: host }
+      - key: COOPHABITAT_DB_PORT
+        fromDatabase: { name: coophabitat-db, property: port }
+      - key: COOPHABITAT_DB_NAME
+        fromDatabase: { name: coophabitat-db, property: database }
+      - key: COOPHABITAT_DB_USER
+        fromDatabase: { name: coophabitat-db, property: user }
+      - key: COOPHABITAT_DB_PASSWORD
+        fromDatabase: { name: coophabitat-db, property: password }
+      - key: COOPHABITAT_JWT_SECRET
+        generateValue: true
+      - key: COOPHABITAT_COOKIE_SECURE
+        value: "true"
+      - key: COOPHABITAT_FORWARD_HEADERS
+        value: native
+      # Adresse HTTPS du site, par exemple https://coophabitat.onrender.com (liens des courriels, CORS).
+      - key: COOPHABITAT_PUBLIC_URL
+        sync: false
+      - key: COOPHABITAT_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: COOPHABITAT_PUBLIC_REGISTRATION
+        value: "true"
+      - key: COOPHABITAT_SWAGGER_ENABLED
+        value: "false"
+      - key: COOPHABITAT_PAYMENT_MOCK_ENABLED
+        value: "false"
+      - key: COOPHABITAT_WAVE_ENABLED
+        value: "false"
+      - key: COOPHABITAT_MAIL_ENABLED
+        value: "false"
+      - key: COOPHABITAT_DEMO_ENABLED
+        value: "false"
+      - key: COOPHABITAT_DB_POOL
+        value: "5"
+
+  # Frontend Angular servi par nginx, qui relaie /api vers le service privé.
+  - type: web
+    name: coophabitat
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: COOPHABITAT_API_HOSTPORT
+        fromService: { type: pserv, name: coophabitat-api, property: hostport }

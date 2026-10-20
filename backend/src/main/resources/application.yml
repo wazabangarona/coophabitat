@@ -3,7 +3,8 @@ spring:
   application:
     name: coophabitat
   datasource:
-    url: ${COOPHABITAT_DB_URL:jdbc:postgresql://localhost:5432/coophabitat}
+    # Sans COOPHABITAT_DB_URL, l'adresse est composée à partir de l'hôte, du port et du nom (cas de Render).
+    url: ${COOPHABITAT_DB_URL:jdbc:postgresql://${COOPHABITAT_DB_HOST:localhost}:${COOPHABITAT_DB_PORT:5432}/${COOPHABITAT_DB_NAME:coophabitat}}
     username: ${COOPHABITAT_DB_USER:coophabitat}
     password: ${COOPHABITAT_DB_PASSWORD:}
     hikari:
@@ -70,7 +71,7 @@ logging:
 
 coophabitat:
   environment: ${COOPHABITAT_ENVIRONMENT:DEVELOPPEMENT}
-  frontend-base-url: ${COOPHABITAT_FRONTEND_URL:http://localhost:4200}
+  frontend-base-url: ${COOPHABITAT_FRONTEND_URL:${COOPHABITAT_PUBLIC_URL:http://localhost:4200}}
   security:
     jwt-secret: ${COOPHABITAT_JWT_SECRET:}
     access-token-ttl: ${COOPHABITAT_ACCESS_TOKEN_TTL:PT15M}
@@ -82,7 +83,7 @@ coophabitat:
     invitation-ttl: P3D
     bootstrap-admin-email: ${COOPHABITAT_BOOTSTRAP_ADMIN_EMAIL:}
   cors:
-    allowed-origins: ${COOPHABITAT_CORS_ORIGINS:http://localhost:4200}
+    allowed-origins: ${COOPHABITAT_CORS_ORIGINS:${COOPHABITAT_PUBLIC_URL:http://localhost:4200}}
   payment:
     mock-enabled: ${COOPHABITAT_PAYMENT_MOCK_ENABLED:false}
     mock-webhook-secret: ${COOPHABITAT_PAYMENT_MOCK_SECRET:}
