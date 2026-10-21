@@ -2,17 +2,43 @@
 # Le résolveur DNS de nginx n'applique pas les domaines de recherche de /etc/resolv.conf. Sur Render, l'adresse
 # privée du serveur est un nom court (ex. coophabitat-api-xxxx:8080) : on le complète avec le premier domaine de
 # recherche qui le résout. Sous Docker Compose, « backend » est résolu directement et reste inchangé.
+#
+# Le serveur a un disque persistant : Render l'arrête pendant son redéploiement, et son nom ne se résout plus.
+# Si le frontend démarre à ce moment-là, on attend qu'il revienne (jusqu'à 5 minutes) ; à défaut, on garde le
+# premier domaine de recherche plutôt que le nom court, que nginx ne pourrait jamais résoudre (erreur 502
+# permanente jusqu'au prochain redémarrage du frontend).
 host="${COOPHABITAT_API_HOSTPORT%%:*}"
 port="${COOPHABITAT_API_HOSTPORT#*:}"
 case "$host" in
   *.*) ;;
   *)
-    for domain in $(awk '$1=="search" { for (i = 2; i <= NF; i++) print $i }' /etc/resolv.conf); do
-      if nslookup "$host.$domain" >/dev/null 2>&1; then
-        export COOPHABITAT_API_HOSTPORT="$host.$domain:$port"
-        echo "api-fqdn: serveur joint via $COOPHABITAT_API_HOSTPORT"
-        break
+    domains=$(awk '$1=="search" { for (i = 2; i <= NF; i++) print $i }' /etc/resolv.conf)
+    # Attente et repli réservés à Render (variable RENDER définie par l'hébergeur) : sous Docker Compose, un
+    # seul passage suffit et le nom court reste valable.
+    if [ -n "$RENDER" ]; then attempts=60; else attempts=1; fi
+    fqdn=""
+    attempt=0
+    while [ -z "$fqdn" ] && [ "$attempt" -lt "$attempts" ]; do
+      for domain in $domains; do
+        if nslookup "$host.$domain" >/dev/null 2>&1; then
+          fqdn="$host.$domain"
+          break
+        fi
+      done
+      attempt=$((attempt + 1))
+      if [ -z "$fqdn" ] && [ "$attempt" -lt "$attempts" ]; then
+        [ "$attempt" -eq 1 ] && echo "api-fqdn: $host introuvable pour l'instant (serveur en redémarrage ?), nouvel essai toutes les 5 s"
+        sleep 5
       fi
     done
+    first=$(echo "$domains" | head -n 1)
+    if [ -z "$fqdn" ] && [ -n "$RENDER" ] && [ -n "$first" ]; then
+      fqdn="$host.$first"
+      echo "api-fqdn: $host toujours introuvable, adresse retenue par défaut : $fqdn:$port"
+    fi
+    if [ -n "$fqdn" ]; then
+      export COOPHABITAT_API_HOSTPORT="$fqdn:$port"
+      echo "api-fqdn: serveur joint via $COOPHABITAT_API_HOSTPORT"
+    fi
     ;;
 esac
