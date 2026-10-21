@@ -19,8 +19,13 @@ const today = () => new Date().toISOString().slice(0, 10);
   imports: [FormsModule, PageHeader, StateView, Badge, LabelPipe, MoneyPipe, DayPipe],
   template: `
     <app-page-header title="Cotisations" subtitle="Plans de cotisation, génération des échéances et simulation des pénalités.">
-      @if (auth.has('PLAN_WRITE')) { <button type="button" class="btn small primary" (click)="openForm(null)">Nouveau plan</button> }
+      @if (auth.has('PLAN_WRITE')) { <button type="button" class="btn primary" (click)="openForm(null)">+ Créer une cotisation</button> }
+      @else { <button type="button" class="btn primary" disabled title="Réservé à la trésorerie et à l’administrateur">+ Créer une cotisation</button> }
     </app-page-header>
+
+    @if (!auth.has('PLAN_WRITE')) {
+      <p class="alert" data-tone="info">La création d’une cotisation est réservée à la trésorerie et à l’administrateur technique.</p>
+    }
 
     @if (form()) {
       <section class="card"><h2>{{ editId ? 'Modifier le plan (brouillon)' : 'Nouveau plan de cotisation' }}</h2>
@@ -46,7 +51,7 @@ const today = () => new Date().toISOString().slice(0, 10);
       </section>
     }
 
-    <app-state [loading]="plans.loading()" [error]="plans.error()" [empty]="!plans.data()?.length" emptyText="Aucun plan défini." (retry)="plans.reload()">
+    <app-state [loading]="plans.loading()" [error]="plans.error()" [empty]="!plans.data()?.length" emptyText="Aucun plan de cotisation pour l’instant." (retry)="plans.reload()">
       <div class="table-wrap"><table>
         <thead><tr><th>Plan</th><th class="num">Montant</th><th>Périodicité</th><th>Pénalité</th><th>Validité</th><th class="num">Membres</th><th>Statut</th><th></th></tr></thead>
         <tbody>@for (x of plans.data(); track x.id) {
