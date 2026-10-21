@@ -128,6 +128,7 @@ Le schéma est géré par **Flyway** ; les migrations s'exécutent automatiqueme
 | `V2__integrite_et_referentiels.sql` | Triggers d'immuabilité (journaux en ajout seul, écritures non modifiables, transactions confirmées figées, reçus et documents figés), contrôle d'équilibre des écritures, rôles, permissions, plan de comptes, durées de conservation |
 | `V3__sequences.sql` | Séquences de numérotation (reçus, références) |
 | `V4__validation_adhesions.sql` | Statut `REFUSE` des demandes d'adhésion refusées |
+| `V5__declarations_de_paiement.sql` | Consignes de paiement de la coopérative, compte de trésorerie Orange Money |
 
 Hibernate est en mode `validate` : il ne modifie jamais le schéma. Une migration déjà appliquée ne doit jamais
 être modifiée ; toute évolution passe par un nouveau fichier `V4__…`.
@@ -239,6 +240,19 @@ cases à cocher, « Affecter ce plan ») ; personne n'affecte son propre plan. L
 décision est historisée et journalisée. Nul ne valide sa propre adhésion, sauf à la mise en route (voir ci-dessous). Une adresse ou un téléphone déjà inscrits reçoivent la
 même réponse qu'une demande acceptée, pour ne pas révéler qui est inscrit ; les demandes sont limitées à 5 par minute
 et par adresse IP.
+
+**Payer sans paiement en ligne.** Tant que Wave n'est pas branché, le membre paie lui-même (Wave ou Orange Money vers le
+numéro de la coopérative, virement, chèque) en suivant les consignes que la trésorerie saisit dans **Paiements**, puis
+**déclare** son paiement avec la référence reçue. La déclaration reste « en vérification » et n'est comptée qu'après
+validation par un responsable habilité autre que le déclarant, qui a retrouvé l'argent sur le compte ; une référence ne
+peut être déclarée qu'une fois. Les espèces restent saisies par la trésorerie puis vérifiées par une seconde personne.
+
+**Sans serveur de courriel.** Le lien d'activation d'un compte créé par le bureau, ou d'une invitation renvoyée, s'affiche
+au responsable pour qu'il le transmette lui-même ; l'administrateur peut aussi créer un lien « mot de passe perdu ». La
+personne en est prévenue dans l'application et chaque lien est journalisé. Configurer `COOPHABITAT_SMTP_*` rétablit
+l'envoi par courriel.
+
+Les échéances d'un membre apparaissent dès la validation de son adhésion ou l'affectation de son plan.
 
 Mise en route d'une installation officielle : l'administrateur initial active son compte avec le lien affiché,
 renseigne le nom de la coopérative (Administration), puis attribue les rôles du bureau (Président, Trésorier,

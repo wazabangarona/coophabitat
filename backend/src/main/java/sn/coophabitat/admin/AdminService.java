@@ -74,8 +74,12 @@ public class AdminService {
         return users.search(q == null || q.isBlank() ? null : q.trim(), p);
     }
 
+    /** Compte créé et lien d'activation (rendu seulement si aucun courriel ne peut partir). */
+    public record CreatedUser(UserAccount user, AuthService.AccessLink access) {
+    }
+
     @Transactional
-    public UserAccount createUser(UserCreateRequest r, CurrentUser actor) {
+    public CreatedUser createUser(UserCreateRequest r, CurrentUser actor) {
         validateRoles(r.roles());
         if (users.findByEmailIgnoreCase(r.email()).isPresent()) {
             throw BusinessException.conflict("EMAIL_UTILISE", "Un compte existe déjà avec cette adresse");
@@ -92,10 +96,11 @@ public class AdminService {
         u.setMemberId(r.memberId());
         u.setRoles(new HashSet<>(r.roles()));
         u = users.save(u);
-        auth.invite(u);
+        AuthService.AccessLink access = auth.inviteWithLink(u);
         audit.record(AuditCategory.SECURITE, "COMPTE_CREE", "UserAccount", u.getId(),
-                Map.of("roles", String.join(",", new TreeSet<>(r.roles())), "membre", String.valueOf(r.memberId())));
-        return u;
+                Map.of("roles", String.join(",", new TreeSet<>(r.roles())), "membre", String.valueOf(r.memberId()),
+                        "invitation_par_courriel", access.emailSent()));
+        return new CreatedUser(u, access);
     }
 
     @Transactional
@@ -130,13 +135,21 @@ public class AdminService {
     }
 
     @Transactional
-    public void resendInvitation(Long userId) {
+    public AuthService.AccessLink resendInvitation(Long userId) {
         UserAccount u = users.findById(userId).orElseThrow(() -> BusinessException.notFound("Compte"));
         if (u.getPasswordHash() != null) {
             throw BusinessException.rule("DEJA_ACTIVE", "Ce compte est déjà activé ; utilisez la réinitialisation du mot de passe");
         }
-        auth.invite(u);
-        audit.record(AuditCategory.SECURITE, "INVITATION_RENVOYEE", "UserAccount", userId, Map.of());
+        AuthService.AccessLink access = auth.inviteWithLink(u);
+        audit.record(AuditCategory.SECURITE, "INVITATION_RENVOYEE", "UserAccount", userId,
+                Map.of("par_courriel", access.emailSent()));
+        return access;
+    }
+
+    @Transactional
+    public AuthService.AccessLink passwordResetLink(Long userId, CurrentUser actor) {
+        UserAccount u = users.findById(userId).orElseThrow(() -> BusinessException.notFound("Compte"));
+        return auth.passwordResetLinkFor(u, actor);
     }
 
     @Transactional

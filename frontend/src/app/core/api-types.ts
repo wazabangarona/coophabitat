@@ -1,6 +1,12 @@
 /* Fichier généré par scripts/generate-api-types.mjs : ne pas modifier à la main. */
 /* eslint-disable */
 
+export interface AccessLink {
+  emailSent?: boolean;
+  link?: string;
+  validity?: string;
+}
+
 export interface AccountBalance {
   code?: string;
   label?: string;
@@ -422,6 +428,7 @@ export interface CoopSettings {
   escrowStatement?: string;
   escrowIntegrated?: boolean;
   publishPublicStats?: boolean;
+  paymentInstructions?: string;
   demo?: boolean;
   updatedAt?: string;
 }
@@ -429,6 +436,12 @@ export interface CoopSettings {
 export interface CreatedMember {
   member?: MemberResponse;
   invitationSent?: boolean;
+  activationLink?: string;
+}
+
+export interface CreatedUserResponse {
+  user?: UserResponse;
+  access?: AccessLink;
 }
 
 export interface CreateIntentRequest {
@@ -993,6 +1006,25 @@ export interface PasswordResetRequest {
   email: string;
 }
 
+export interface PaymentDeclarationRequest {
+  amount: number;
+  obligationId?: number;
+  method: string;
+  externalReference: string;
+  paidOn: string;
+  comment?: string;
+}
+
+export interface PaymentInstructions {
+  instructions?: string;
+  declarationMethods?: string[];
+  onlinePaymentAvailable?: boolean;
+}
+
+export interface PaymentInstructionsRequest {
+  instructions?: string;
+}
+
 export interface PenaltySimulationRequest {
   dueDate: string;
   principal: number;
@@ -1092,6 +1124,7 @@ export interface PublicInfo {
   paymentSimulationEnabled?: boolean;
   demoData?: boolean;
   registrationOpen?: boolean;
+  passwordResetByEmail?: boolean;
 }
 
 export interface PublicProject {

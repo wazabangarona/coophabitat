@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 public final class PaymentDtos {
 
@@ -20,10 +21,25 @@ public final class PaymentDtos {
     }
 
     public record ManualPaymentRequest(@NotNull Long memberId, @NotNull @Positive BigDecimal amount, Long obligationId,
-                                       @NotNull @Pattern(regexp = "ESPECES|VIREMENT|CHEQUE") String method,
+                                       @NotNull @Pattern(regexp = "ESPECES|VIREMENT|CHEQUE|WAVE|ORANGE_MONEY") String method,
                                        @Size(max = 200) String externalReference,
                                        @NotNull LocalDate receivedOn,
                                        @Size(max = 1000) String comment) {
+    }
+
+    /** Paiement fait par le membre lui-même, à vérifier par le bureau ; la référence de transaction est obligatoire. */
+    public record PaymentDeclarationRequest(@NotNull @Positive BigDecimal amount, Long obligationId,
+                                            @NotNull @Pattern(regexp = "WAVE|ORANGE_MONEY|VIREMENT|CHEQUE") String method,
+                                            @NotBlank @Size(min = 4, max = 200) String externalReference,
+                                            @NotNull LocalDate paidOn,
+                                            @Size(max = 1000) String comment) {
+    }
+
+    /** Où et comment payer la coopérative (texte saisi par le bureau) et moyens de déclaration acceptés. */
+    public record PaymentInstructions(String instructions, List<String> declarationMethods, boolean onlinePaymentAvailable) {
+    }
+
+    public record PaymentInstructionsRequest(@Size(max = 2000) String instructions) {
     }
 
     public record VerifyManualRequest(boolean approve, @Size(max = 1000) String comment) {

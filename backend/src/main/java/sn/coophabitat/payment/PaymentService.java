@@ -33,6 +33,7 @@ import sn.coophabitat.member.MemberStatus;
 import sn.coophabitat.notification.NotificationService;
 import sn.coophabitat.payment.PaymentDtos.CreateIntentRequest;
 import sn.coophabitat.payment.PaymentDtos.ManualPaymentRequest;
+import sn.coophabitat.payment.PaymentDtos.PaymentDeclarationRequest;
 import sn.coophabitat.payment.provider.MockPaymentProvider;
 import sn.coophabitat.payment.provider.PaymentProvider;
 import sn.coophabitat.payment.provider.PaymentProvider.ProviderPaymentStatus;
@@ -43,6 +44,8 @@ import sn.coophabitat.receipt.Receipt;
 import sn.coophabitat.receipt.ReceiptService;
 import sn.coophabitat.security.CurrentUser;
 import sn.coophabitat.security.Permission;
+import sn.coophabitat.security.PermissionResolver;
+import sn.coophabitat.security.UserAccountRepository;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -81,6 +84,8 @@ public class PaymentService {
     private final AuditService audit;
     private final ReferenceGenerator references;
     private final AppProperties props;
+    private final UserAccountRepository users;
+    private final PermissionResolver permissions;
     private final Clock clock;
     private final TransactionTemplate tx;
     private final TransactionTemplate txNew;
@@ -91,7 +96,8 @@ public class PaymentService {
                           MemberObligationRepository obligations, ContributionPlanRepository plans,
                           AccountingService accounting, AccountingEntryRepository entries, ReceiptService receipts,
                           NotificationService notifications, AuditService audit, ReferenceGenerator references,
-                          AppProperties props, Clock clock, PlatformTransactionManager tm) {
+                          AppProperties props, UserAccountRepository users, PermissionResolver permissions,
+                          Clock clock, PlatformTransactionManager tm) {
         this.intents = intents;
         this.transactions = transactions;
         this.events = events;
@@ -108,6 +114,8 @@ public class PaymentService {
         this.audit = audit;
         this.references = references;
         this.props = props;
+        this.users = users;
+        this.permissions = permissions;
         this.clock = clock;
         this.tx = new TransactionTemplate(tm);
         this.txNew = new TransactionTemplate(tm);
@@ -203,6 +211,9 @@ public class PaymentService {
         Member member = members.findById(memberId).orElseThrow(() -> BusinessException.notFound("Membre"));
         if (member.getStatus() == MemberStatus.EN_ATTENTE) {
             throw BusinessException.rule("ADHESION_NON_ACTIVE", "Le dossier d'adhésion n'est pas encore activé");
+        }
+        if (member.getStatus() == MemberStatus.REFUSE) {
+            throw BusinessException.rule("ADHESION_REFUSEE", "La demande d'adhésion a été refusée : aucun paiement n'est enregistré");
         }
         BigDecimal minimum = props.payment().minimumAmount();
         if (amount.compareTo(minimum) < 0) {
@@ -552,6 +563,72 @@ public class PaymentService {
         });
     }
 
+    /**
+     * Déclaration, par le membre, d'un paiement qu'il a déjà fait lui-même (Wave ou Orange Money vers le numéro de la
+     * coopérative, virement ou chèque). Rien n'est compté à ce stade : la déclaration reste EN_VERIFICATION jusqu'à ce
+     * qu'un responsable habilité, autre que le déclarant, retrouve l'argent sur le compte et la valide.
+     */
+    public PaymentIntent declare(Long memberId, PaymentDeclarationRequest req, String idempotencyKey, CurrentUser user) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 100) {
+            throw BusinessException.badRequest("IDEMPOTENCE_REQUISE", "En-tête Idempotency-Key obligatoire (100 caractères max.)");
+        }
+        BigDecimal amount = Money.requirePositiveXof(req.amount(), "Le montant");
+        if (req.paidOn().isAfter(LocalDate.now(clock))) {
+            throw BusinessException.badRequest("DATE_FUTURE", "La date du paiement ne peut pas être future");
+        }
+        PaymentIntent declared = tx.execute(s -> {
+            var existing = intents.findByMemberIdAndIdempotencyKey(memberId, idempotencyKey);
+            if (existing.isPresent()) {
+                return existing.get();
+            }
+            validateAmount(memberId, amount, req.obligationId());
+            String reference = req.externalReference().trim();
+            if (intents.existsByProviderAndChannelAndExternalReferenceAndStatusNot(ProviderCode.MANUEL, req.method(),
+                    reference, PaymentStatus.ECHOUE)) {
+                throw BusinessException.conflict("REFERENCE_DEJA_DECLAREE",
+                        "Cette référence de transaction a déjà été déclarée ou enregistrée");
+            }
+            PaymentIntent i = new PaymentIntent();
+            i.setReference(references.next("PI"));
+            i.setMemberId(memberId);
+            i.setObligationId(req.obligationId());
+            i.setAmount(amount);
+            i.setProvider(ProviderCode.MANUEL);
+            i.setChannel(req.method());
+            i.setExternalReference(reference);
+            i.setStatus(PaymentStatus.EN_VERIFICATION);
+            i.setIdempotencyKey(idempotencyKey);
+            i.setSimulated(false);
+            i.setCreatedBy(user.userId());
+            i.setFailureReason("Déclaré par le membre (payé le " + req.paidOn() + ") : en attente de vérification par le bureau");
+            i = intents.save(i);
+            audit.record(AuditCategory.FINANCE, "PAIEMENT_DECLARE_PAR_MEMBRE", "PaymentIntent", i.getId(),
+                    Map.of("reference", i.getReference(), "montant", amount, "moyen", req.method(),
+                            "reference_transaction", reference, "paye_le", req.paidOn().toString(),
+                            "commentaire", String.valueOf(req.comment())));
+            return i;
+        });
+        notifyVerifiers(declared, user);
+        return declared;
+    }
+
+    private void notifyVerifiers(PaymentIntent i, CurrentUser declarant) {
+        List<String> roles = permissions.rolesWith(Permission.PAYMENT_MANUAL_VERIFY.name());
+        if (roles.isEmpty()) {
+            return;
+        }
+        String who = members.findById(i.getMemberId()).map(m -> m.fullName() + " (" + m.getMemberNumber() + ")").orElse("Un membre");
+        for (var u : users.findActiveByRoles(roles)) {
+            if (u.getId().equals(declarant.userId())) {
+                continue;
+            }
+            notifications.notifyUser(u.getId(), "PAIEMENT_A_VERIFIER", "Paiement déclaré à vérifier",
+                    who + " déclare avoir payé " + Money.format(i.getAmount()) + " (" + i.getChannel() + ", référence "
+                            + i.getExternalReference() + "). Vérifiez la réception dans Paiements avant de valider.",
+                    "PAIEMENT_A_VERIFIER:" + i.getId() + ":" + u.getId(), "PaymentIntent", i.getId());
+        }
+    }
+
     /** Séparation des tâches : la personne qui vérifie ne peut pas être celle qui a saisi. */
     public PaymentIntent verifyManual(Long intentId, boolean approve, String comment, CurrentUser user) {
         PaymentIntent intent = intents.findById(intentId).orElseThrow(() -> BusinessException.notFound("Paiement"));
@@ -637,7 +714,12 @@ public class PaymentService {
             case WAVE -> Accounts.WAVE;
             case SENDFLASH -> Accounts.SENDFLASH;
             case MOCK -> Accounts.SIMULATION;
-            case MANUEL -> "ESPECES".equals(intent.getChannel()) ? Accounts.CASH : Accounts.BANK;
+            case MANUEL -> switch (String.valueOf(intent.getChannel())) {
+                case "ESPECES" -> Accounts.CASH;
+                case "WAVE" -> Accounts.WAVE;
+                case "ORANGE_MONEY" -> Accounts.ORANGE_MONEY;
+                default -> Accounts.BANK;
+            };
         };
     }
 

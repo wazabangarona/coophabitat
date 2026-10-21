@@ -3,7 +3,7 @@ import { LowerCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Api, newIdempotencyKey } from '../../core/api';
-import { IntentResponse, ObligationResponse, PlanResponse, ProviderInfo } from '../../core/api-types';
+import { IntentResponse, ObligationResponse, PaymentInstructions, PlanResponse, ProviderInfo } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Busy, Loader } from '../../core/loader';
 import { OfflineSnapshot } from '../../core/offline';
@@ -70,29 +70,59 @@ import { DayPipe, LabelPipe, MoneyPipe } from '../../ui/pipes';
     @if (selected(); as o) {
       <section class="card" aria-labelledby="pay-title">
         <h2 id="pay-title">Payer « {{ o.periodLabel }} »</h2>
-        <form (ngSubmit)="pay(o)" #f="ngForm">
-          <label class="field"><span>Montant (francs CFA)</span>
-            <input type="number" name="amount" [(ngModel)]="amount" required min="1" [max]="o.outstanding ?? null" step="1" inputmode="numeric" />
-            <small class="muted">Reste dû : {{ o.outstanding | money }}. Un paiement partiel est possible.</small></label>
-          <fieldset class="field">
-            <legend>Moyen de paiement</legend>
-            @for (p of providers.data(); track p.code) {
-              <label class="check" [class.disabled]="!p.available">
-                <input type="radio" name="provider" [value]="p.code" [checked]="provider === p.code" (change)="provider = p.code ?? ''" [disabled]="!p.available" />
-                <span><strong>{{ p.code | label }}</strong>
-                  @if (p.simulated) { <span class="badge" data-tone="sim">Simulation</span> }
-                  <br /><small class="muted">{{ p.message }}</small></span>
-              </label>
-            }
-            <p class="muted small">Pour un paiement en espèces ou par virement, remettez-le au trésorier : il sera enregistré
-              puis vérifié par un second responsable avant d’être compté.</p>
-          </fieldset>
-          @if (provider === 'MOCK') { <p class="alert" data-tone="sim">{{ notice }}</p> }
-          <div class="row">
-            <button type="button" class="btn" (click)="selected.set(null)">Annuler</button>
-            <button class="btn primary" [disabled]="f.invalid || !provider || busy.on()">Continuer</button>
+        @if (online().length && mode() === 'online') {
+          <form (ngSubmit)="pay(o)" #f="ngForm">
+            <label class="field"><span>Montant (francs CFA)</span>
+              <input type="number" name="amount" [(ngModel)]="amount" required min="1" [max]="o.outstanding ?? null" step="1" inputmode="numeric" />
+              <small class="muted">Reste dû : {{ o.outstanding | money }}. Un paiement partiel est possible.</small></label>
+            <fieldset class="field">
+              <legend>Moyen de paiement</legend>
+              @for (p of online(); track p.code) {
+                <label class="check">
+                  <input type="radio" name="provider" [value]="p.code" [checked]="provider === p.code" (change)="provider = p.code ?? ''" />
+                  <span><strong>{{ p.code | label }}</strong>
+                    @if (p.simulated) { <span class="badge" data-tone="sim">Simulation</span> }
+                    <br /><small class="muted">{{ p.message }}</small></span>
+                </label>
+              }
+            </fieldset>
+            @if (provider === 'MOCK') { <p class="alert" data-tone="sim">{{ notice }}</p> }
+            <div class="row">
+              <button type="button" class="btn" (click)="selected.set(null)">Annuler</button>
+              <button type="button" class="btn" (click)="mode.set('declare')">J’ai déjà payé autrement</button>
+              <button class="btn primary" [disabled]="f.invalid || !provider || busy.on()">Continuer</button>
+            </div>
+          </form>
+        } @else {
+          <div class="alert" data-tone="info">
+            <strong>Comment payer</strong>
+            @if (instructions.data()?.instructions; as text) { <p class="pre">{{ text }}</p> }
+            @else { <p>Le bureau n’a pas encore indiqué le numéro ou le compte de la coopérative : renseignez-vous auprès du trésorier.</p> }
+            <small>Après avoir payé, déclarez votre paiement ci-dessous avec la référence reçue (SMS Wave ou Orange Money, avis de virement).
+              Il sera compté dès que le bureau l’aura retrouvé sur le compte de la coopérative. En espèces, remettez l’argent au trésorier contre reçu.</small>
           </div>
-        </form>
+          <form (ngSubmit)="declare(o)" #d="ngForm" class="grid-2">
+            <label class="field"><span>Montant payé (francs CFA)</span>
+              <input type="number" name="amount" [(ngModel)]="amount" required min="1" step="1" inputmode="numeric" />
+              <small class="muted">Reste dû : {{ o.outstanding | money }}.</small></label>
+            <label class="field"><span>Moyen utilisé</span>
+              <select name="method" [(ngModel)]="decl.method" required>
+                @for (m of methods(); track m) { <option [value]="m">{{ m | label }}</option> }
+              </select></label>
+            <label class="field"><span>Référence de la transaction</span>
+              <input name="ref" [(ngModel)]="decl.reference" required minlength="4" maxlength="200" autocomplete="off" />
+              <small class="muted">Identifiant figurant sur le SMS de confirmation ou l’avis de virement.</small></label>
+            <label class="field"><span>Date du paiement</span>
+              <input type="date" name="paidOn" [(ngModel)]="decl.paidOn" required [max]="today" /></label>
+            <label class="field span-2"><span>Commentaire (facultatif)</span>
+              <input name="comment" [(ngModel)]="decl.comment" maxlength="1000" /></label>
+            <div class="row span-2">
+              <button type="button" class="btn" (click)="selected.set(null)">Annuler</button>
+              @if (online().length) { <button type="button" class="btn" (click)="mode.set('online')">Payer en ligne</button> }
+              <button class="btn primary" [disabled]="d.invalid || busy.on()">Déclarer mon paiement</button>
+            </div>
+          </form>
+        }
       </section>
     }
   `,
@@ -110,7 +140,14 @@ export class MyContributions implements OnInit {
     const first = ps.find((p) => p.available && !p.simulated) ?? ps.find((p) => p.available);
     this.provider = first?.code ?? '';
   });
+  protected readonly instructions = new Loader<PaymentInstructions>();
+  /** Moyens de paiement en ligne réellement ouverts ; sans eux, le membre déclare le paiement qu'il a fait lui-même. */
+  protected readonly online = computed(() => (this.providers.data() ?? []).filter((p) => p.available));
+  protected readonly methods = computed(() => this.instructions.data()?.declarationMethods ?? ['WAVE', 'ORANGE_MONEY', 'VIREMENT', 'CHEQUE']);
+  protected readonly mode = signal<'online' | 'declare'>('online');
   protected readonly selected = signal<ObligationResponse | null>(null);
+  protected readonly today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Africa/Dakar' });
+  protected decl = { method: 'WAVE', reference: '', paidOn: this.today, comment: '' };
   protected readonly busy = new Busy();
   protected readonly notice = SIMULATION_NOTICE;
   protected amount = 0;
@@ -123,6 +160,7 @@ export class MyContributions implements OnInit {
     this.list.load(() => this.api.get<ObligationResponse[]>('/me/obligations'));
     this.plan.load(() => this.api.get<PlanResponse | null>('/me/plan'));
     this.providers.load(() => this.api.get<ProviderInfo[]>('/payments/providers'));
+    this.instructions.load(() => this.api.get<PaymentInstructions>('/payments/instructions'));
     void this.auth;
   }
 
@@ -130,6 +168,24 @@ export class MyContributions implements OnInit {
     this.selected.set(o);
     this.amount = o.outstanding ?? 0;
     this.key = newIdempotencyKey();
+    this.mode.set('online');
+    this.decl = { method: this.decl.method, reference: '', paidOn: this.today, comment: '' };
+  }
+
+  declare(o: ObligationResponse): void {
+    const body = { amount: this.amount, obligationId: o.id, method: this.decl.method, externalReference: this.decl.reference.trim(),
+      paidOn: this.decl.paidOn, comment: this.decl.comment.trim() || null };
+    this.busy.run(
+      this.api.postOnce<IntentResponse>('/payments/declarations', body, this.key),
+      () => {
+        this.toasts.success('Paiement déclaré. Il sera compté dès que le bureau l’aura vérifié.');
+        void this.router.navigate(['/espace/paiements']);
+      },
+      (e) => {
+        this.toasts.error(e);
+        if ((e as { status?: number }).status) this.key = newIdempotencyKey();
+      },
+    );
   }
 
   pay(o: ObligationResponse): void {

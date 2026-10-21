@@ -131,6 +131,56 @@
                 }
             }
         },
+        "/api/v1/payments/instructions": {
+            "get": {
+                "tags": [
+                    "Paiements"
+                ],
+                "summary": "Comment payer la coop\u00e9rative (consignes du bureau) et paiement en ligne disponible ou non",
+                "operationId": "instructions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaymentInstructions"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Paiements"
+                ],
+                "summary": "Met \u00e0 jour les consignes de paiement affich\u00e9es aux membres (num\u00e9ro Wave, compte bancaire\u2026)",
+                "operationId": "updateInstructions",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PaymentInstructionsRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaymentInstructions"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/notifications/preferences/{channel}": {
             "put": {
                 "tags": [
@@ -1646,6 +1696,47 @@
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IntentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/declarations": {
+            "post": {
+                "tags": [
+                    "Paiements"
+                ],
+                "summary": "Le membre d\u00e9clare un paiement d\u00e9j\u00e0 fait (Wave, Orange Money, virement, ch\u00e8que) ; compt\u00e9 apr\u00e8s v\u00e9rification par le bureau",
+                "operationId": "declarePayment",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PaymentDeclarationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
                         "content": {
                             "*/*": {
                                 "schema": {
@@ -4755,6 +4846,7 @@
                 "tags": [
                     "Administration"
                 ],
+                "summary": "Cr\u00e9e un compte ; sans serveur SMTP, le lien d'activation est renvoy\u00e9 pour \u00eatre transmis \u00e0 la personne",
                 "operationId": "createUser",
                 "requestBody": {
                     "content": {
@@ -4772,7 +4864,7 @@
                         "content": {
                             "*/*": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/UserResponse"
+                                    "$ref": "#/components/schemas/CreatedUserResponse"
                                 }
                             }
                         }
@@ -4804,11 +4896,44 @@
                 }
             }
         },
+        "/api/v1/admin/users/{id}/password-reset": {
+            "post": {
+                "tags": [
+                    "Administration"
+                ],
+                "summary": "R\u00e9initialisation pour une personne qui a perdu son mot de passe (courriel, ou lien \u00e0 remettre sans SMTP)",
+                "operationId": "passwordReset",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccessLink"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/users/{id}/invitation": {
             "post": {
                 "tags": [
                     "Administration"
                 ],
+                "summary": "Renvoie l'invitation ; sans serveur SMTP, le lien est renvoy\u00e9 pour \u00eatre transmis \u00e0 la personne",
                 "operationId": "resendInvitation",
                 "parameters": [
                     {
@@ -4822,8 +4947,15 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccessLink"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -5321,6 +5453,30 @@
                                 "schema": {
                                     "type": "string",
                                     "format": "byte"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/payments/declarations/mine": {
+            "get": {
+                "tags": [
+                    "Paiements"
+                ],
+                "summary": "Paiements d\u00e9clar\u00e9s ou remis au bureau par le membre connect\u00e9, avec leur \u00e9tat de v\u00e9rification",
+                "operationId": "myDeclarations",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/IntentResponse"
+                                    }
                                 }
                             }
                         }
@@ -6989,6 +7145,33 @@
                     }
                 }
             },
+            "PaymentInstructionsRequest": {
+                "type": "object",
+                "properties": {
+                    "instructions": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "minLength": 0
+                    }
+                }
+            },
+            "PaymentInstructions": {
+                "type": "object",
+                "properties": {
+                    "instructions": {
+                        "type": "string"
+                    },
+                    "declarationMethods": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "onlinePaymentAvailable": {
+                        "type": "boolean"
+                    }
+                }
+            },
             "UpdateMemberRequest": {
                 "type": "object",
                 "properties": {
@@ -8466,6 +8649,9 @@
                     "publishPublicStats": {
                         "type": "boolean"
                     },
+                    "paymentInstructions": {
+                        "type": "string"
+                    },
                     "demo": {
                         "type": "boolean"
                     },
@@ -8748,7 +8934,7 @@
                     },
                     "method": {
                         "type": "string",
-                        "pattern": "ESPECES|VIREMENT|CHEQUE"
+                        "pattern": "ESPECES|VIREMENT|CHEQUE|WAVE|ORANGE_MONEY"
                     },
                     "externalReference": {
                         "type": "string",
@@ -8809,6 +8995,43 @@
                 "required": [
                     "amount",
                     "provider"
+                ]
+            },
+            "PaymentDeclarationRequest": {
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                    },
+                    "obligationId": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "method": {
+                        "type": "string",
+                        "pattern": "WAVE|ORANGE_MONEY|VIREMENT|CHEQUE"
+                    },
+                    "externalReference": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 4
+                    },
+                    "paidOn": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "comment": {
+                        "type": "string",
+                        "maxLength": 1000,
+                        "minLength": 0
+                    }
+                },
+                "required": [
+                    "amount",
+                    "externalReference",
+                    "method",
+                    "paidOn"
                 ]
             },
             "ReminderRun": {
@@ -8935,6 +9158,9 @@
                     },
                     "invitationSent": {
                         "type": "boolean"
+                    },
+                    "activationLink": {
+                        "type": "string"
                     }
                 }
             },
@@ -10367,6 +10593,31 @@
                     "roles"
                 ]
             },
+            "AccessLink": {
+                "type": "object",
+                "properties": {
+                    "emailSent": {
+                        "type": "boolean"
+                    },
+                    "link": {
+                        "type": "string"
+                    },
+                    "validity": {
+                        "type": "string"
+                    }
+                }
+            },
+            "CreatedUserResponse": {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "$ref": "#/components/schemas/UserResponse"
+                    },
+                    "access": {
+                        "$ref": "#/components/schemas/AccessLink"
+                    }
+                }
+            },
             "DataRequestDecision": {
                 "type": "object",
                 "properties": {
@@ -10507,6 +10758,9 @@
                         "type": "boolean"
                     },
                     "registrationOpen": {
+                        "type": "boolean"
+                    },
+                    "passwordResetByEmail": {
                         "type": "boolean"
                     }
                 }

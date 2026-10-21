@@ -64,22 +64,24 @@ import { DayPipe, LabelPipe, WhenPipe } from '../../ui/pipes';
       </app-state>
     </section>
 
-    <section class="card">
-      <h2>Notifications</h2>
-      <p class="muted small">Les messages de sécurité (réinitialisation, activation) sont toujours envoyés.</p>
-      @for (c of channels; track c) {
-        <label class="check"><input type="checkbox" [checked]="prefs()[c]" (change)="setPref(c, $any($event.target).checked)" />
-          {{ c | label }}</label>
-      }
-    </section>
+    @if (auth.isMember()) {
+      <section class="card">
+        <h2>Notifications</h2>
+        <p class="muted small">Les messages de sécurité (réinitialisation, activation) sont toujours envoyés.</p>
+        @for (c of channels; track c) {
+          <label class="check"><input type="checkbox" [checked]="prefs()[c]" (change)="setPref(c, $any($event.target).checked)" />
+            {{ c | label }}</label>
+        }
+      </section>
 
-    <section class="card">
-      <h2>Consultation hors ligne</h2>
-      <label class="check"><input type="checkbox" [checked]="offlineOn()" (change)="toggleOffline($any($event.target).checked)" />
-        Conserver sur cet appareil une copie de ma situation de cotisations</label>
-      <p class="muted small">La copie est datée, effacée à la déconnexion, et ne remplace jamais la situation à jour.
-        Ne l’activez pas sur un appareil partagé.</p>
-    </section>
+      <section class="card">
+        <h2>Consultation hors ligne</h2>
+        <label class="check"><input type="checkbox" [checked]="offlineOn()" (change)="toggleOffline($any($event.target).checked)" />
+          Conserver sur cet appareil une copie de ma situation de cotisations</label>
+        <p class="muted small">La copie est datée, effacée à la déconnexion, et ne remplace jamais la situation à jour.
+          Ne l’activez pas sur un appareil partagé.</p>
+      </section>
+    }
 
     @if (auth.isMember()) {
       <section class="card">
@@ -127,7 +129,8 @@ export class Account implements OnInit {
   protected readonly requests = new Loader<DataRequestResponse[]>();
   protected readonly prefs = signal<Record<string, boolean>>({});
   protected readonly offlineOn = signal(this.offline.enabled());
-  protected readonly channels = ['EMAIL', 'SMS', 'IN_APP'];
+  /** Aucun fournisseur SMS n'est intégré : le canal n'est pas proposé. */
+  protected readonly channels = ['EMAIL', 'IN_APP'];
   protected readonly requestTypes = ['ACCES', 'RECTIFICATION', 'OPPOSITION', 'SUPPRESSION', 'PORTABILITE'];
   protected contact = { email: '', phone: '', address: '', city: '' };
   protected pwd = { current: '', next: '' };
@@ -139,7 +142,9 @@ export class Account implements OnInit {
       this.requests.load(() => this.api.get<DataRequestResponse[]>('/me/data-requests'));
     }
     this.sessions.load(() => this.api.get<SessionInfo[]>('/auth/sessions'));
-    this.api.get<Record<string, boolean>>('/notifications/preferences').subscribe({ next: (p) => this.prefs.set(p) });
+    if (this.auth.isMember()) {
+      this.api.get<Record<string, boolean>>('/notifications/preferences').subscribe({ next: (p) => this.prefs.set(p) });
+    }
   }
 
   saveContact(): void {

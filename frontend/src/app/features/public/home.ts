@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, effect, inject, untracked } from '@angular/core';
 import { LowerCasePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Api } from '../../core/api';
@@ -185,9 +185,19 @@ export class Home implements OnInit {
   protected readonly projects = new Loader<PublicProject[]>();
   protected readonly stats = new Loader<PublicStats>();
 
+  constructor() {
+    // Les statistiques ne sont demandées que si le bureau a choisi de les publier (informations publiques chargées).
+    let requested = false;
+    effect(() => {
+      if (!requested && this.info.info()?.publicStatsAvailable) {
+        requested = true;
+        untracked(() => this.stats.load(() => this.api.get<PublicStats>('/public/stats')));
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.projects.load(() => this.api.get<PublicProject[]>('/public/projects'));
-    this.stats.load(() => this.api.get<PublicStats>('/public/stats'));
   }
 
   protected lotEntries(s: PublicStats): [string, number][] {

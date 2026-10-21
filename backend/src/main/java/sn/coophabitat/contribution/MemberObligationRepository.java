@@ -32,6 +32,12 @@ public interface MemberObligationRepository extends JpaRepository<MemberObligati
     @Query("select o from MemberObligation o where o.id = :id")
     Optional<MemberObligation> lockById(Long id);
 
+    @Query("""
+            select count(o) > 0 from MemberObligation o where o.memberId = :memberId and o.periodStart = :periodStart
+            and o.kind = sn.coophabitat.contribution.ObligationKind.COTISATION
+            and o.status <> sn.coophabitat.contribution.ObligationStatus.ANNULEE""")
+    boolean existsActiveContributionForPeriod(Long memberId, LocalDate periodStart);
+
     boolean existsByMemberIdAndPlanIdAndPeriodStartAndKind(Long memberId, Long planId, LocalDate periodStart,
                                                           ObligationKind kind);
 

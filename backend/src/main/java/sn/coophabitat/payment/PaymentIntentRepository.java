@@ -17,6 +17,9 @@ public interface PaymentIntentRepository extends JpaRepository<PaymentIntent, Lo
 
     Optional<PaymentIntent> findByMemberIdAndIdempotencyKey(Long memberId, String idempotencyKey);
 
+    boolean existsByProviderAndChannelAndExternalReferenceAndStatusNot(ProviderCode provider, String channel,
+                                                                        String externalReference, PaymentStatus status);
+
     Optional<PaymentIntent> findByReference(String reference);
 
     Optional<PaymentIntent> findByProviderAndProviderSessionId(ProviderCode provider, String providerSessionId);

@@ -33,11 +33,11 @@ class ContributionIT extends IntegrationTest {
     void generationIsIdempotent() {
         LocalDate start = LocalDate.now().minusMonths(3).withDayOfMonth(1);
         var plan = fx.activePlan(BigDecimal.valueOf(15_000), start, 0, PenaltyMethod.AUCUNE, BigDecimal.ZERO);
+        // L'activation de l'adhésion génère aussitôt les échéances ; une nouvelle génération n'ajoute rien.
         Member m = fx.activeMember(plan.getId(), start);
-        int first = obligations.generateForMember(m.getId(), LocalDate.now());
-        int second = obligations.generateForMember(m.getId(), LocalDate.now());
-        assertThat(first).isGreaterThanOrEqualTo(3);
-        assertThat(second).isZero();
+        assertThat(repository.findByMemberIdOrderByDueDateAscIdAsc(m.getId())).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(obligations.generateForMember(m.getId(), LocalDate.now())).isZero();
+        assertThat(obligations.generateForMember(m.getId(), LocalDate.now())).isZero();
         assertThat(repository.findByMemberIdOrderByDueDateAscIdAsc(m.getId()))
                 .allMatch(o -> o.getAmountDue().compareTo(BigDecimal.valueOf(15_000)) == 0);
     }
@@ -98,9 +98,9 @@ class ContributionIT extends IntegrationTest {
         LocalDate today = LocalDate.now();
         LocalDate due = today.plusDays(3);
         var plan = fx.activePlan(BigDecimal.valueOf(5_000), due.withDayOfMonth(1), 0, PenaltyMethod.AUCUNE, BigDecimal.ZERO);
+        jdbc.update("UPDATE contribution_plan SET due_day_of_month = ? WHERE id = ?", due.getDayOfMonth(), plan.getId());
         Member m = fx.activeMember(plan.getId(), due.withDayOfMonth(1).minusMonths(1));
         fx.memberAccount(m);
-        jdbc.update("UPDATE contribution_plan SET due_day_of_month = ? WHERE id = ?", due.getDayOfMonth(), plan.getId());
         obligations.generateForMember(m.getId(), today);
         MemberObligation o = repository.findByMemberIdOrderByDueDateAscIdAsc(m.getId()).stream()
                 .filter(x -> x.getDueDate().equals(due)).findFirst().orElseThrow();
@@ -120,9 +120,9 @@ class ContributionIT extends IntegrationTest {
         LocalDate today = LocalDate.now();
         LocalDate due = today.plusDays(2);
         var plan = fx.activePlan(BigDecimal.valueOf(5_000), due.withDayOfMonth(1), 0, PenaltyMethod.AUCUNE, BigDecimal.ZERO);
+        jdbc.update("UPDATE contribution_plan SET due_day_of_month = ? WHERE id = ?", due.getDayOfMonth(), plan.getId());
         Member m = fx.activeMember(plan.getId(), due.withDayOfMonth(1).minusMonths(1));
         fx.memberAccount(m);
-        jdbc.update("UPDATE contribution_plan SET due_day_of_month = ? WHERE id = ?", due.getDayOfMonth(), plan.getId());
         obligations.generateForMember(m.getId(), today);
         MemberObligation o = repository.findByMemberIdOrderByDueDateAscIdAsc(m.getId()).stream()
                 .filter(x -> x.getDueDate().equals(due)).findFirst().orElseThrow();

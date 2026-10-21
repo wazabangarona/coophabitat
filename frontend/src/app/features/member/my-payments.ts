@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
 import { Api, saveBlob } from '../../core/api';
-import { AllocationResponse, PageResponseTransactionResponse, ReceiptItem, TransactionResponse } from '../../core/api-types';
+import { AllocationResponse, IntentResponse, PageResponseTransactionResponse, ReceiptItem, TransactionResponse } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Loader } from '../../core/loader';
 import { Toasts } from '../../core/toast';
@@ -18,7 +18,30 @@ interface Data {
   imports: [PageHeader, StateView, Pager, Badge, SimBadge, MoneyPipe, WhenPipe, LabelPipe],
   template: `
     <app-page-header title="Paiements et reçus"
-      subtitle="Seuls les paiements confirmés par l’opérateur ou vérifiés par deux responsables apparaissent ici." />
+      subtitle="Seuls les paiements confirmés par l’opérateur ou vérifiés par le bureau sont comptés." />
+    @if (pending().length) {
+      <section class="card" aria-labelledby="pending-title">
+        <h2 id="pending-title">Paiements déclarés ou remis au bureau</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Moyen</th><th>Référence</th><th class="num">Montant</th><th>État</th></tr></thead>
+            <tbody>
+              @for (i of pending(); track i.id) {
+                <tr>
+                  <td data-label="Date">{{ i.createdAt | when }}</td>
+                  <td data-label="Moyen">{{ i.channel | label }}</td>
+                  <td data-label="Référence" class="mono">{{ i.externalReference || '—' }}</td>
+                  <td data-label="Montant" class="num">{{ i.amount | money }}</td>
+                  <td data-label="État"><app-badge [value]="i.status" />
+                    @if (i.status === 'ECHOUE' && i.failureReason) { <br /><small class="muted">{{ i.failureReason }}</small> }</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="muted small">Un paiement « En vérification » sera compté dès que le bureau l’aura retrouvé sur le compte de la coopérative.</p>
+      </section>
+    }
     <app-state [loading]="data.loading()" [error]="data.error()" [empty]="!data.data()?.tx?.content?.length"
       emptyText="Aucun paiement confirmé pour le moment." (retry)="data.reload()">
       <div class="table-wrap">
@@ -67,10 +90,16 @@ export class MyPayments implements OnInit {
   protected readonly page = signal(0);
   protected readonly open = signal<number | null>(null);
   protected readonly allocations = signal<AllocationResponse[]>([]);
+  /** Déclarations encore à vérifier ou refusées (les paiements confirmés figurent dans le tableau des paiements). */
+  protected readonly pending = signal<IntentResponse[]>([]);
   private readonly memberId = this.auth.user()?.memberId;
 
   ngOnInit(): void {
     this.go(0);
+    this.api.get<IntentResponse[]>('/payments/declarations/mine').subscribe({
+      next: (list) => this.pending.set(list.filter((i) => i.status === 'EN_VERIFICATION' || i.status === 'ECHOUE')),
+      error: () => this.pending.set([]),
+    });
   }
 
   go(p: number): void {
