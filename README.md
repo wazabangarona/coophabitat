@@ -130,6 +130,7 @@ Le schéma est géré par **Flyway** ; les migrations s'exécutent automatiqueme
 | `V4__validation_adhesions.sql` | Statut `REFUSE` des demandes d'adhésion refusées |
 | `V5__declarations_de_paiement.sql` | Consignes de paiement de la coopérative, compte de trésorerie Orange Money |
 | `V6__plans_par_administrateur.sql` | L'administrateur technique définit et affecte les plans de cotisation |
+| `V7__plans_par_secretariat.sql` | Le secrétariat crée et affecte aussi les plans de cotisation |
 
 Hibernate est en mode `validate` : il ne modifie jamais le schéma. Une migration déjà appliquée ne doit jamais
 être modifiée ; toute évolution passe par un nouveau fichier `V4__…`.
