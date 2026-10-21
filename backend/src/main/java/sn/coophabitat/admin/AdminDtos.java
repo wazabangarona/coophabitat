@@ -27,6 +27,10 @@ public final class AdminDtos {
                                Instant lastLoginAt, Instant lockedUntil, boolean demo, Instant createdAt) {
     }
 
+    /** Compte créé ; access.link n'est renseigné que si l'invitation n'a pas pu partir par courriel. */
+    public record CreatedUserResponse(UserResponse user, sn.coophabitat.security.AuthService.AccessLink access) {
+    }
+
     /** Titulaire d'une fonction du bureau, avec l'état de son adhésion (null s'il n'est pas rattaché à un membre). */
     public record BureauHolder(Long userId, String displayName, String email, boolean activated, String memberStatus) {
     }

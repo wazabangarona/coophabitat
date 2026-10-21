@@ -105,8 +105,9 @@ public class ObligationService {
         int created = 0;
         for (ScheduleCalculator.Period p : ScheduleCalculator.periods(plan.getPeriodicity(), plan.getDueDayOfMonth(),
                 effective, plan.getValidTo(), asOf.plusDays(HORIZON_DAYS))) {
+            // Une période déjà due au titre d'un autre plan (changement de plan) n'est pas facturée deux fois.
             if (obligations.existsByMemberIdAndPlanIdAndPeriodStartAndKind(m.getId(), plan.getId(), p.start(),
-                    ObligationKind.COTISATION)) {
+                    ObligationKind.COTISATION) || obligations.existsActiveContributionForPeriod(m.getId(), p.start())) {
                 continue;
             }
             MemberObligation o = new MemberObligation();

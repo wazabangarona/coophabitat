@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { Api } from '../../core/api';
-import { BureauHolder, BureauSetup, CoopSettings, DataRequestResponse, DataRetentionPolicy, PageResponseUserResponse, RoleResponse, UserResponse } from '../../core/api-types';
+import { AccessLink, BureauHolder, BureauSetup, CoopSettings, CreatedUserResponse, DataRequestResponse, DataRetentionPolicy, PageResponseUserResponse, RoleResponse, UserResponse } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Dialogs } from '../../core/dialog';
 import { ROLE_LABELS, label } from '../../core/labels';
@@ -50,6 +50,16 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
             </ol>
           </section>
         }
+        @if (issued(); as l) {
+          <section class="card alert" data-tone="warn" aria-live="polite">
+            <h2>{{ l.title }}</h2>
+            <p>Aucun serveur de courriel n’est configuré : transmettez vous-même ce lien à {{ l.who }} (en main propre, par SMS ou WhatsApp).
+              Il est personnel, à usage unique et valable {{ l.validity }}. Ne le communiquez à personne d’autre.</p>
+            <p class="mono link-box">{{ l.link }}</p>
+            <div class="row"><button type="button" class="btn small primary" (click)="copy(l.link)">Copier le lien</button>
+              <button type="button" class="btn small" (click)="issued.set(null)">Fermer</button></div>
+          </section>
+        }
         <form class="card grid-2" (ngSubmit)="createUser()" #uf="ngForm">
           <h2 class="span-2">Créer un compte</h2>
           <label class="field"><span>Adresse électronique</span><input type="email" name="e" [(ngModel)]="nu.email" required email /></label>
@@ -57,7 +67,8 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
           <label class="field"><span>Identifiant du membre lié (facultatif)</span><input type="number" name="m" [(ngModel)]="nu.memberId" /></label>
           <fieldset class="field"><legend>Rôles</legend>@for (r of roles(); track r.code) {
             <label class="check"><input type="checkbox" [checked]="nu.roles.includes(r.code!)" (change)="toggle(nu.roles, r.code!)" /> {{ roleLabel(r.code) }}</label> }</fieldset>
-          <p class="span-2 small muted">Aucun mot de passe n’est défini ici : la personne reçoit une invitation à usage unique et choisit le sien.
+          <p class="span-2 small muted">Aucun mot de passe n’est défini ici : la personne reçoit une invitation à usage unique et choisit le sien
+            (sans serveur de courriel, le lien s’affiche ici pour que vous le lui transmettiez).
             Certains cumuls sont interdits (président et trésorier, administrateur technique et fonction du bureau).</p>
           <div class="span-2"><button class="btn primary" [disabled]="uf.invalid || !nu.roles.length || busy.on()">Créer et inviter</button></div>
         </form>
@@ -65,7 +76,7 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
         <app-state [loading]="users.loading()" [error]="users.error()" [empty]="!users.data()?.content?.length" emptyText="Aucun compte." (retry)="users.reload()">
           @for (u of users.data()?.content; track u.id) {
             <article class="card">
-              <div class="row between"><div><strong>{{ u.displayName }}</strong> <small class="muted">{{ u.email }}</small>
+              <div class="row between"><div><strong>{{ u.displayName }}</strong>{{ ' ' }}<small class="muted">{{ u.email }}</small>
                 @if (u.demo) { <span class="badge" data-tone="demo">Fictif</span> }</div>
                 <div class="row"><span class="badge" [attr.data-tone]="u.enabled ? 'ok' : 'bad'">{{ u.enabled ? 'Actif' : 'Désactivé' }}</span>
                   @if (!u.activated) { <span class="badge" data-tone="warn">Invitation non acceptée</span> }
@@ -81,7 +92,8 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
                   <div class="row">
                     <button type="button" class="btn small" (click)="editRoles = [...(u.roles ?? [])]; editing.set(u.id ?? null)">Modifier les rôles</button>
                     <button type="button" class="btn small" [class.danger]="u.enabled" (click)="setEnabled(u, !u.enabled)">{{ u.enabled ? 'Désactiver' : 'Réactiver' }}</button>
-                    @if (!u.activated) { <button type="button" class="btn small" (click)="simple('/admin/users/' + u.id + '/invitation', 'Invitation renvoyée.')">Renvoyer l’invitation</button> }
+                    @if (!u.activated) { <button type="button" class="btn small" (click)="resend(u)">Renvoyer l’invitation</button> }
+                    @if (u.activated && u.enabled) { <button type="button" class="btn small" (click)="resetPassword(u)">Mot de passe perdu</button> }
                     @if (u.lockedUntil) { <button type="button" class="btn small" (click)="simple('/admin/users/' + u.id + '/unlock', 'Compte déverrouillé.')">Déverrouiller</button> }
                   </div>
                 }
@@ -137,6 +149,7 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
   styles: `
     .checklist { margin: 0; padding-left: 1.25rem; display: grid; gap: .45rem; }
     .checklist li.done::marker { content: '✓  '; color: var(--ok, #2f7d4f); }
+    .link-box { word-break: break-all; user-select: all; padding: .5rem; background: var(--c-surface, #fff); border-radius: 6px; }
   `,
 })
 export class Admin implements OnInit {
@@ -165,6 +178,8 @@ export class Admin implements OnInit {
   protected readonly editing = signal<number | null>(null);
   protected readonly upage = signal(0);
   protected readonly busy = new Busy();
+  /** Lien d'activation ou de réinitialisation à transmettre soi-même lorsque aucun courriel ne peut partir. */
+  protected readonly issued = signal<{ title: string; who: string; link: string; validity: string } | null>(null);
   protected q = '';
   protected editRoles: string[] = [];
   protected nu = { email: '', displayName: '', memberId: null as number | null, roles: [] as string[] };
@@ -212,10 +227,40 @@ export class Admin implements OnInit {
   }
 
   createUser(): void {
-    this.run(this.api.post('/admin/users', this.nu), 'Compte créé, invitation envoyée.', () => {
+    const who = this.nu.displayName;
+    this.busy.run(this.api.post<CreatedUserResponse>('/admin/users', this.nu), (r) => {
+      this.toasts.success(r.access?.emailSent ? 'Compte créé, invitation envoyée par courriel.' : 'Compte créé.');
+      this.showLink('Lien d’activation du compte', who, r.access);
       this.nu = { email: '', displayName: '', memberId: null, roles: [] };
       this.users.reload();
-    });
+      this.setup.reload();
+    }, (e) => this.toasts.error(e));
+  }
+
+  resend(u: UserResponse): void {
+    this.busy.run(this.api.post<AccessLink>(`/admin/users/${u.id}/invitation`), (a) => {
+      this.toasts.success(a.emailSent ? 'Invitation renvoyée par courriel.' : 'Nouveau lien d’activation créé ; l’ancien ne fonctionne plus.');
+      this.showLink('Lien d’activation du compte', u.displayName ?? '', a);
+    }, (e) => this.toasts.error(e));
+  }
+
+  async resetPassword(u: UserResponse): Promise<void> {
+    const ok = await this.dialogs.ask({ title: `Mot de passe perdu : ${u.displayName}`,
+      message: 'Un lien de réinitialisation à usage unique sera créé (envoyé par courriel si un serveur est configuré, sinon affiché ici pour que vous le remettiez à la personne). La personne en est prévenue et l’opération est journalisée.',
+      confirmLabel: 'Créer le lien' });
+    if (ok === null) return;
+    this.busy.run(this.api.post<AccessLink>(`/admin/users/${u.id}/password-reset`), (a) => {
+      this.toasts.success(a.emailSent ? 'Lien de réinitialisation envoyé par courriel.' : 'Lien de réinitialisation créé.');
+      this.showLink('Lien de réinitialisation du mot de passe', u.displayName ?? '', a);
+    }, (e) => this.toasts.error(e));
+  }
+
+  private showLink(title: string, who: string, a?: AccessLink): void {
+    if (a?.link) this.issued.set({ title, who, link: a.link, validity: a.validity ?? '' });
+  }
+
+  copy(text: string): void {
+    navigator.clipboard?.writeText(text).then(() => this.toasts.success('Lien copié.'), () => this.toasts.error('Copie impossible : sélectionnez le lien.'));
   }
 
   saveRoles(u: UserResponse): void {

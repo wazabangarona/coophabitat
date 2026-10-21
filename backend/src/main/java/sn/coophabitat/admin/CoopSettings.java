@@ -27,6 +27,8 @@ public class CoopSettings {
     /** Reste faux tant qu'aucun mécanisme juridique et bancaire de séquestre n'est réellement intégré. */
     private boolean escrowIntegrated;
     private boolean publishPublicStats;
+    /** Où et comment payer la coopérative (numéro Wave ou Orange Money, compte bancaire...), affiché aux membres. */
+    private String paymentInstructions;
     @Column(name = "is_demo")
     private boolean demo;
     private Instant updatedAt = Instant.now();

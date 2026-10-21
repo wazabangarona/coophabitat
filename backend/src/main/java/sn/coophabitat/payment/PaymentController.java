@@ -7,7 +7,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import sn.coophabitat.admin.CoopSettingsRepository;
+import sn.coophabitat.audit.AuditCategory;
+import sn.coophabitat.audit.AuditService;
 import sn.coophabitat.common.BusinessException;
 import sn.coophabitat.common.Downloads;
 import sn.coophabitat.common.PageResponse;
@@ -35,11 +39,14 @@ public class PaymentController {
     private final MemberRepository members;
     private final PaymentProviderRegistry providers;
     private final PaymentMapper mapper;
+    private final CoopSettingsRepository settings;
+    private final AuditService audit;
 
     public PaymentController(PaymentService service, PaymentIntentRepository intents,
                              PaymentTransactionRepository transactions, PaymentAllocationRepository allocations,
                              MemberObligationRepository obligations, MemberRepository members,
-                             PaymentProviderRegistry providers, PaymentMapper mapper) {
+                             PaymentProviderRegistry providers, PaymentMapper mapper,
+                             CoopSettingsRepository settings, AuditService audit) {
         this.service = service;
         this.intents = intents;
         this.transactions = transactions;
@@ -48,6 +55,8 @@ public class PaymentController {
         this.members = members;
         this.providers = providers;
         this.mapper = mapper;
+        this.settings = settings;
+        this.audit = audit;
     }
 
     @GetMapping("/providers")
@@ -58,6 +67,46 @@ public class PaymentController {
                         p.available() ? (p.simulated() ? "SIMULATION — AUCUN ARGENT RÉEL TRANSFÉRÉ" : "Disponible")
                                 : p.unavailableReason()))
                 .toList();
+    }
+
+    @GetMapping("/instructions")
+    @Operation(summary = "Comment payer la coopérative (consignes du bureau) et paiement en ligne disponible ou non")
+    public PaymentInstructions instructions() {
+        boolean online = providers.all().stream().anyMatch(p -> p.available());
+        return new PaymentInstructions(settings.current().getPaymentInstructions(),
+                List.of("WAVE", "ORANGE_MONEY", "VIREMENT", "CHEQUE"), online);
+    }
+
+    @PutMapping("/instructions")
+    @PreAuthorize("hasAnyAuthority('PAYMENT_MANUAL_RECORD', 'SETTINGS_ADMIN')")
+    @Transactional
+    @Operation(summary = "Met à jour les consignes de paiement affichées aux membres (numéro Wave, compte bancaire…)")
+    public PaymentInstructions updateInstructions(@Valid @RequestBody PaymentInstructionsRequest body) {
+        var s = settings.current();
+        String text = body.instructions() == null || body.instructions().isBlank() ? null : body.instructions().trim();
+        s.setPaymentInstructions(text);
+        settings.save(s);
+        audit.record(AuditCategory.FINANCE, "CONSIGNES_PAIEMENT_MODIFIEES", "CoopSettings", 1L,
+                java.util.Map.of("renseignees", text != null));
+        return instructions();
+    }
+
+    @PostMapping("/declarations")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SELF_SERVICE')")
+    @Operation(summary = "Le membre déclare un paiement déjà fait (Wave, Orange Money, virement, chèque) ; compté après vérification par le bureau")
+    public IntentResponse declarePayment(@RequestHeader("Idempotency-Key") String key,
+                                  @Valid @RequestBody PaymentDeclarationRequest body) {
+        CurrentUser user = CurrentUserProvider.require();
+        return mapper.intent(service.declare(CurrentUserProvider.requireMemberId(), body, key, user));
+    }
+
+    @GetMapping("/declarations/mine")
+    @PreAuthorize("hasAuthority('SELF_SERVICE')")
+    @Operation(summary = "Paiements déclarés ou remis au bureau par le membre connecté, avec leur état de vérification")
+    public List<IntentResponse> myDeclarations() {
+        return intents.search(null, ProviderCode.MANUEL, CurrentUserProvider.requireMemberId(), null,
+                PageRequest.of(0, 20)).map(mapper::intent).getContent();
     }
 
     @PostMapping("/intents")

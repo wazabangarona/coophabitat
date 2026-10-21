@@ -91,8 +91,12 @@ class ApiSweepIT extends IntegrationTest {
         String body = mvc.perform(post("/api/v1/admin/users").header("Authorization", bearer(t)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"nouveau-" + System.nanoTime() + "@test.invalid\",\"displayName\":\"Nouveau trésorier\","
                                 + "\"roles\":[\"TRESORIER\"]}"))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.activated").value(false)).andReturn().getResponse().getContentAsString();
-        long id = ((Number) sn.coophabitat.common.Json.read(body, java.util.Map.class).get("id")).longValue();
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.user.activated").value(false))
+                // Sans serveur SMTP, le lien d'activation est rendu à l'administrateur pour qu'il le transmette.
+                .andExpect(jsonPath("$.access.emailSent").value(false))
+                .andExpect(jsonPath("$.access.link").value(org.hamcrest.Matchers.containsString("/activation?jeton=")))
+                .andReturn().getResponse().getContentAsString();
+        long id = ((Number) ((java.util.Map<?, ?>) sn.coophabitat.common.Json.read(body, java.util.Map.class).get("user")).get("id")).longValue();
         mvc.perform(put("/api/v1/admin/users/" + admin.getId() + "/roles").header("Authorization", bearer(t))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"roles\":[\"TRESORIER\"]}")).andExpect(status().isForbidden());
         mvc.perform(put("/api/v1/admin/users/" + id + "/roles").header("Authorization", bearer(t))
@@ -100,7 +104,17 @@ class ApiSweepIT extends IntegrationTest {
                 .andExpect(status().isUnprocessableContent());
         mvc.perform(put("/api/v1/admin/users/" + id + "/roles").header("Authorization", bearer(t))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"roles\":[\"SECRETAIRE\"]}")).andExpect(status().isOk());
-        mvc.perform(post("/api/v1/admin/users/" + id + "/invitation").header("Authorization", bearer(t))).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/admin/users/" + id + "/invitation").header("Authorization", bearer(t))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.link").value(org.hamcrest.Matchers.containsString("/activation?jeton=")));
+        // Un compte non activé ne se réinitialise pas : on renvoie l'invitation.
+        mvc.perform(post("/api/v1/admin/users/" + id + "/password-reset").header("Authorization", bearer(t)))
+                .andExpect(status().isUnprocessableContent());
+        var member = fx.user(null, "MEMBRE");
+        mvc.perform(post("/api/v1/admin/users/" + member.getId() + "/password-reset").header("Authorization", bearer(t)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.emailSent").value(false))
+                .andExpect(jsonPath("$.link").value(org.hamcrest.Matchers.containsString("/reinitialisation?jeton=")));
+        mvc.perform(post("/api/v1/admin/users/" + admin.getId() + "/password-reset").header("Authorization", bearer(t)))
+                .andExpect(status().isForbidden());
         mvc.perform(post("/api/v1/admin/users/" + id + "/unlock").header("Authorization", bearer(t))).andExpect(status().isNoContent());
         mvc.perform(put("/api/v1/admin/settings").header("Authorization", bearer(t)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Coopérative de test\",\"city\":\"Thiès\",\"publishPublicStats\":true}"))

@@ -202,8 +202,15 @@ export class Members implements OnInit {
   }
 
   create(): void {
-    this.busy.run(this.api.post<CreatedMember>('/members', { ...this.m, email: this.m.email || null }), (r) => {
-      this.toasts.success(`Membre ${r.member?.memberNumber} enregistré${r.invitationSent ? ', invitation envoyée' : ''}.`);
+    this.busy.run(this.api.post<CreatedMember>('/members', { ...this.m, email: this.m.email || null }), async (r) => {
+      this.toasts.success(`Membre ${r.member?.memberNumber} enregistré${r.invitationSent ? ', invitation envoyée par courriel' : ''}.`);
+      if (r.activationLink) {
+        // Sans serveur de courriel, le lien d'activation n'est montré qu'ici : le responsable le transmet lui-même.
+        navigator.clipboard?.writeText(r.activationLink).catch(() => undefined);
+        await this.dialogs.ask({ title: 'Lien d’activation à transmettre',
+          message: `Aucun serveur de courriel n’est configuré. Transmettez ce lien personnel à ${r.member?.firstName} ${r.member?.lastName} (SMS, WhatsApp ou en main propre) ; il est à usage unique. Il a été copié dans le presse-papiers.\n\n${r.activationLink}`,
+          confirmLabel: 'J’ai transmis le lien' });
+      }
       this.creating.set(false);
       this.m = this.blank();
       void this.router.navigate(['/bureau/membres', r.member?.id]);

@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Api, saveBlob } from '../../core/api';
-import { IntentResponse, PageResponseIntentResponse } from '../../core/api-types';
+import { IntentResponse, PageResponseIntentResponse, PaymentInstructions } from '../../core/api-types';
 import { Auth } from '../../core/auth';
 import { Dialogs } from '../../core/dialog';
 import { Loader } from '../../core/loader';
@@ -22,8 +22,22 @@ const PROVIDERS = ['WAVE', 'SENDFLASH', 'MANUEL', 'MOCK'];
       <button type="button" class="btn small" (click)="export(true)">Exporter les simulations</button>
     </app-page-header>
     @if (auth.has('PAYMENT_MANUAL_VERIFY')) {
-      <p class="alert" data-tone="info">Les paiements manuels « en vérification » doivent être validés par une personne différente de celle qui les a saisis.
+      <p class="alert" data-tone="info">Les paiements « en vérification » (déclarés par un membre ou saisis par la trésorerie) doivent être validés par une
+        personne différente de celle qui les a saisis, après avoir retrouvé l’argent sur le compte de la coopérative.
         <button type="button" class="link" (click)="status = 'EN_VERIFICATION'; go(0)">Afficher ceux à vérifier</button></p>
+    }
+    @if (auth.hasAny('PAYMENT_MANUAL_RECORD', 'SETTINGS_ADMIN')) {
+      <details class="card" [open]="!instructions">
+        <summary>Consignes de paiement affichées aux membres</summary>
+        <p class="small muted">Indiquez où payer la coopérative : numéro marchand Wave ou Orange Money, compte bancaire (RIB), heures de permanence pour les espèces.
+          Les membres les voient au moment de payer, puis déclarent leur paiement avec sa référence.</p>
+        <form (ngSubmit)="saveInstructions()">
+          <label class="field"><span>Consignes</span>
+            <textarea name="instr" rows="5" maxlength="2000" [(ngModel)]="instructions"
+              placeholder="Exemple : Wave au 77 000 00 00 (Coopérative Teranga Habitat) ; virement sur le compte SN000 00000 000000000000 00."></textarea></label>
+          <button class="btn primary small">Enregistrer les consignes</button>
+        </form>
+      </details>
     }
     <div class="filters">
       <label class="field inline"><span>Statut</span><select [(ngModel)]="status" (ngModelChange)="go(0)"><option value="">Tous</option>
@@ -40,7 +54,7 @@ const PROVIDERS = ['WAVE', 'SENDFLASH', 'MANUEL', 'MOCK'];
           <tr><td data-label="Créée">{{ i.createdAt | when }}</td>
             <td data-label="Référence" class="mono">{{ i.reference }}@if (i.externalReference) { <br /><small class="muted">{{ i.externalReference }}</small> }</td>
             <td data-label="Membre">@if (auth.has('MEMBER_READ_ALL')) { <a [routerLink]="['/bureau/membres', i.memberId]">Fiche n° {{ i.memberId }}</a> } @else { n° {{ i.memberId }} }</td>
-            <td data-label="Moyen">{{ i.provider | label }}{{ i.channel ? ' · ' + i.channel : '' }} @if (i.simulated) { <app-sim-badge /> }</td>
+            <td data-label="Moyen">{{ i.provider | label }}@if (i.channel && i.channel !== i.provider) { · {{ i.channel | label }} } @if (i.simulated) { <app-sim-badge /> }</td>
             <td data-label="Montant" class="num">{{ i.amount | money }}</td>
             <td data-label="Statut"><app-badge [value]="i.status" />@if (i.failureReason) { <br /><small>{{ i.failureReason }}</small> }
               @if (i.receiptNumber) { <br /><small>Reçu {{ i.receiptNumber }}</small> }</td>
@@ -74,9 +88,20 @@ export class BureauPayments implements OnInit {
   protected status = '';
   protected provider = '';
   protected simulated = '';
+  protected instructions = '';
 
   ngOnInit(): void {
     this.go(0);
+    if (this.auth.hasAny('PAYMENT_MANUAL_RECORD', 'SETTINGS_ADMIN')) {
+      this.api.get<PaymentInstructions>('/payments/instructions').subscribe((r) => (this.instructions = r.instructions ?? ''));
+    }
+  }
+
+  saveInstructions(): void {
+    this.api.put<PaymentInstructions>('/payments/instructions', { instructions: this.instructions }).subscribe({
+      next: (r) => { this.instructions = r.instructions ?? ''; this.toasts.success('Consignes de paiement enregistrées.'); },
+      error: (e) => this.toasts.error(e),
+    });
   }
 
   go(p: number): void {
@@ -87,7 +112,7 @@ export class BureauPayments implements OnInit {
   async verify(i: IntentResponse, approve: boolean): Promise<void> {
     const comment = await this.dialogs.ask({
       title: approve ? `Valider le paiement ${i.reference}` : `Rejeter le paiement ${i.reference}`,
-      message: approve ? 'Confirmez avoir constaté l’encaissement (espèces comptées, virement visible sur le relevé). Le paiement sera imputé et un reçu émis.' : 'Le paiement ne sera pas compté.',
+      message: approve ? `Confirmez avoir constaté l’encaissement${i.externalReference ? ' (référence ' + i.externalReference + ' retrouvée sur le relevé Wave, Orange Money ou bancaire)' : ' (espèces comptées)'}. Le paiement sera imputé et un reçu émis.` : 'Le paiement ne sera pas compté ; indiquez au membre pourquoi.',
       reasonLabel: 'Constat ou motif', confirmLabel: approve ? 'Valider' : 'Rejeter', danger: !approve,
     });
     if (comment === null) return;

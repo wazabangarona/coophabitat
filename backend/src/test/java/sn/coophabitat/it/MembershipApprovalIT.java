@@ -67,6 +67,9 @@ class MembershipApprovalIT extends IntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIF"))
                 .andExpect(jsonPath("$.contributionPlanId").value(plan.getId()));
+        // Les échéances du nouveau membre existent tout de suite, sans attendre la génération de la nuit.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM member_obligation WHERE member_id = ? AND kind = 'COTISATION'",
+                Long.class, m.getId())).isPositive();
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_event WHERE action = 'ADHESION_APPROUVEE' AND entity_id = ?",
                 Long.class, String.valueOf(m.getId()))).isEqualTo(1);

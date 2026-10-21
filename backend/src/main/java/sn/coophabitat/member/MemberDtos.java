@@ -109,6 +109,7 @@ public final class MemberDtos {
         }
     }
 
-    public record CreatedMember(MemberResponse member, boolean invitationSent) {
+    /** activationLink n'est renseigné que si l'invitation n'a pas pu partir par courriel (aucun serveur SMTP). */
+    public record CreatedMember(MemberResponse member, boolean invitationSent, String activationLink) {
     }
 }

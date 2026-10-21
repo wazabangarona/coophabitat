@@ -176,6 +176,53 @@ class PaymentIT extends IntegrationTest {
     }
 
     @Test
+    void aMemberDeclaresAPaymentThatCountsOnlyAfterTheBureauVerifiesIt() throws Exception {
+        UserAccount treasurer = fx.user(null, "TRESORIER");
+        UserAccount president = fx.user(null, "PRESIDENT");
+        String tt = fx.token(treasurer);
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/payments/instructions")
+                        .header("Authorization", bearer(tt)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"instructions\":\"Wave au 77 000 00 00\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/payments/instructions")
+                        .header("Authorization", bearer(token)).contentType(MediaType.APPLICATION_JSON).content("{\"instructions\":\"x\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/payments/instructions").header("Authorization", bearer(token)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.instructions").value("Wave au 77 000 00 00"));
+
+        String body = "{\"amount\":20000,\"obligationId\":" + first.getId()
+                + ",\"method\":\"WAVE\",\"externalReference\":\"TXN-WAVE-123456\",\"paidOn\":\"" + LocalDate.now() + "\"}";
+        MvcResult r = mvc.perform(post("/api/v1/payments/declarations").header("Authorization", bearer(token))
+                        .header("Idempotency-Key", UUID.randomUUID().toString()).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("EN_VERIFICATION"))
+                .andExpect(jsonPath("$.provider").value("MANUEL")).andExpect(jsonPath("$.channel").value("WAVE"))
+                .andReturn();
+        PaymentIntent declared = intentOf(r);
+        // Une déclaration n'est jamais un paiement : rien n'est compté, rien n'est imputé.
+        assertThat(transactions.findByIntentId(declared.getId())).isEmpty();
+        assertThat(obligationRepository.findById(first.getId()).orElseThrow().getAmountPaid()).isEqualByComparingTo("0");
+        // La même référence ne peut pas être déclarée deux fois.
+        mvc.perform(post("/api/v1/payments/declarations").header("Authorization", bearer(token))
+                        .header("Idempotency-Key", UUID.randomUUID().toString()).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/v1/payments/declarations/mine").header("Authorization", bearer(token)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].externalReference").value("TXN-WAVE-123456"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM notification WHERE template_code = 'PAIEMENT_A_VERIFIER' AND related_id = ?",
+                Long.class, declared.getId())).isPositive();
+
+        // Le membre ne valide pas sa propre déclaration ; un responsable habilité la valide après l'avoir retrouvée.
+        assertThatThrownBy(() -> payments.verifyManual(declared.getId(), true, "moi", fx.actAs(account))).hasMessageContaining("autre");
+        payments.verifyManual(declared.getId(), true, "Référence retrouvée sur le relevé Wave", fx.actAs(president));
+        PaymentTransaction tx = transactions.findByIntentId(declared.getId()).orElseThrow();
+        assertThat(tx.isSimulated()).isFalse();
+        assertThat(obligationRepository.findById(first.getId()).orElseThrow().getStatus()).isEqualTo(ObligationStatus.PAYEE);
+        // L'argent reçu sur le compte Wave de la coopérative est comptabilisé sur le compte de trésorerie Wave.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM accounting_line l JOIN accounting_entry e ON e.id = l.entry_id "
+                + "WHERE e.source_type = 'PAIEMENT' AND e.source_id = ? AND l.account_code = '552100' AND l.debit = 20000",
+                Long.class, tx.getId())).isEqualTo(1);
+    }
+
+    @Test
     void manualPaymentNeedsASecondPersonAndCanBeRefunded() {
         UserAccount treasurer = fx.user(null, "TRESORIER");
         UserAccount president = fx.user(null, "PRESIDENT");

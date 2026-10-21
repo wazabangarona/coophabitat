@@ -211,6 +211,63 @@ public class AuthService {
         return raw;
     }
 
+    /**
+     * Lien d'accès remis par un responsable : envoyé par courriel si un serveur SMTP est configuré, sinon renvoyé à
+     * l'appelant pour qu'il le transmette lui-même à la personne (sans SMTP, c'est le seul moyen d'activer un compte).
+     */
+    public record AccessLink(boolean emailSent, String link, String validity) {
+    }
+
+    /** Invitation d'un compte créé par un responsable ; le lien n'est rendu que si aucun courriel ne peut partir. */
+    @Transactional
+    public AccessLink inviteWithLink(UserAccount user) {
+        String raw = invite(user);
+        if (notifications.emailAvailable()) {
+            return new AccessLink(true, null, props.security().invitationTtl().toHours() + " heures");
+        }
+        return new AccessLink(false, props.frontendBaseUrl() + "/activation?jeton=" + raw,
+                props.security().invitationTtl().toHours() + " heures");
+    }
+
+    /**
+     * Réinitialisation demandée par l'administrateur pour une personne qui a perdu son mot de passe :
+     * courriel à la personne si possible, sinon lien à lui remettre en main propre. La personne est prévenue dans
+     * l'application et l'opération est journalisée.
+     */
+    @Transactional
+    public AccessLink passwordResetLinkFor(UserAccount user, CurrentUser actor) {
+        if (user.getPasswordHash() == null) {
+            throw BusinessException.rule("NON_ACTIVE", "Ce compte n'est pas encore activé : renvoyez plutôt l'invitation");
+        }
+        if (!user.isEnabled()) {
+            throw BusinessException.rule("COMPTE_DESACTIVE", "Ce compte est désactivé : réactivez-le d'abord");
+        }
+        if (user.getId().equals(actor.userId())) {
+            throw BusinessException.forbidden("Changez votre propre mot de passe depuis « Mon compte »");
+        }
+        String raw = createOneTimeToken(user.getId(), OneTimeToken.Purpose.PASSWORD_RESET,
+                props.security().passwordResetTtl());
+        String link = props.frontendBaseUrl() + "/reinitialisation?jeton=" + raw;
+        String validity = props.security().passwordResetTtl().toMinutes() + " minutes";
+        boolean emailed = notifications.emailAvailable();
+        if (emailed) {
+            notifications.sendSecurityEmail(user, "REINITIALISATION_MOT_DE_PASSE",
+                    "Réinitialisation de votre mot de passe CoopHabitat",
+                    "Bonjour,\n\nL'administrateur de la coopérative a lancé la réinitialisation de votre mot de passe. "
+                            + "Ce lien est valable " + validity + " :\n" + link
+                            + "\n\nSi vous n'avez rien demandé, prévenez le bureau.");
+        }
+        notifications.notifyUser(user.getId(), "REINITIALISATION_PAR_ADMINISTRATEUR",
+                "Réinitialisation de votre mot de passe",
+                "L'administrateur a créé un lien de réinitialisation de votre mot de passe. Si vous ne l'avez pas demandé, "
+                        + "prévenez le bureau.", "REINIT_ADMIN:" + user.getId() + ":" + Hashing.randomCode(8),
+                "UserAccount", user.getId());
+        logDevelopmentLink("réinitialisation", link);
+        audit.record(AuditCategory.SECURITE, "LIEN_REINITIALISATION_GENERE", "UserAccount", user.getId(),
+                Map.of("par_courriel", emailed));
+        return new AccessLink(emailed, emailed ? null : link, validity);
+    }
+
     @Transactional(readOnly = true)
     public List<RefreshToken> activeSessions(Long userId) {
         return refreshTokens.findActiveForUser(userId, Instant.now(clock));

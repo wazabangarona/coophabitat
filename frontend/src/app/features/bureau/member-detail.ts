@@ -117,7 +117,8 @@ interface Data {
                 responsable, différent de vous.</p>
               <label class="field"><span>Montant (XOF)</span><input type="number" name="am" [(ngModel)]="mp.amount" required min="1" step="1" /></label>
               <label class="field"><span>Moyen</span><select name="me" [(ngModel)]="mp.method" required>
-                <option value="ESPECES">Espèces</option><option value="VIREMENT">Virement bancaire</option><option value="CHEQUE">Chèque</option>
+                <option value="ESPECES">Espèces</option><option value="WAVE">Wave (vers le compte de la coopérative)</option>
+                <option value="ORANGE_MONEY">Orange Money (vers le compte de la coopérative)</option><option value="VIREMENT">Virement bancaire</option><option value="CHEQUE">Chèque</option>
                 </select></label>
               <label class="field"><span>Reçu le</span><input type="date" name="rd" [(ngModel)]="mp.receivedOn" required /></label>
               <label class="field"><span>Référence externe (bordereau, n° de chèque)</span><input name="er" [(ngModel)]="mp.externalReference" /></label>

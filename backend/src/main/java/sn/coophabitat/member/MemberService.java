@@ -10,6 +10,7 @@ import sn.coophabitat.common.BusinessException;
 import sn.coophabitat.common.ReferenceGenerator;
 import sn.coophabitat.contribution.ContributionPlan;
 import sn.coophabitat.contribution.ContributionPlanRepository;
+import sn.coophabitat.contribution.ObligationService;
 import sn.coophabitat.contribution.PlanStatus;
 import sn.coophabitat.member.MemberDtos.*;
 import sn.coophabitat.notification.NotificationService;
@@ -42,12 +43,13 @@ public class MemberService {
     private final AuditService audit;
     private final NotificationService notifications;
     private final PermissionResolver permissions;
+    private final ObligationService obligations;
     private final Clock clock;
 
     public MemberService(MemberRepository members, MembershipStatusHistoryRepository history,
                          ContributionPlanRepository plans, UserAccountRepository users, AuthService auth,
                          ReferenceGenerator references, AuditService audit, NotificationService notifications,
-                         PermissionResolver permissions, Clock clock) {
+                         PermissionResolver permissions, ObligationService obligations, Clock clock) {
         this.members = members;
         this.history = history;
         this.plans = plans;
@@ -57,6 +59,7 @@ public class MemberService {
         this.audit = audit;
         this.notifications = notifications;
         this.permissions = permissions;
+        this.obligations = obligations;
         this.clock = clock;
     }
 
@@ -99,6 +102,7 @@ public class MemberService {
         audit.record(AuditCategory.MEMBRE, "MEMBRE_CREE", "Member", m.getId(),
                 Map.of("numero", m.getMemberNumber(), "type", m.getMemberType().name()));
         boolean invited = false;
+        String activationLink = null;
         if (r.createAccount()) {
             if (email == null) {
                 throw BusinessException.badRequest("EMAIL_REQUIS", "Une adresse e-mail est nécessaire pour créer un compte");
@@ -112,12 +116,13 @@ public class MemberService {
             u.setMemberId(m.getId());
             u.setRoles(Set.of(RoleCode.MEMBRE.name()));
             u = users.save(u);
-            auth.invite(u);
-            invited = true;
+            var access = auth.inviteWithLink(u);
+            invited = access.emailSent();
+            activationLink = access.link();
             audit.record(AuditCategory.SECURITE, "COMPTE_MEMBRE_CREE", "UserAccount", u.getId(),
                     Map.of("membre", m.getMemberNumber()));
         }
-        return new CreatedMember(MemberResponse.of(m, invited), invited);
+        return new CreatedMember(MemberResponse.of(m, r.createAccount()), invited, activationLink);
     }
 
     @Transactional
@@ -295,6 +300,9 @@ public class MemberService {
         details.put("vers", to.name());
         details.put("motif", reason);
         audit.record(AuditCategory.MEMBRE, event, "Member", id, details);
+        if (to == MemberStatus.ACTIF) {
+            generateObligations(m);
+        }
         if (to == MemberStatus.RADIE || to == MemberStatus.REFUSE) {
             users.findByMemberId(id).ifPresent(u -> {
                 u.setEnabled(false);
@@ -390,6 +398,16 @@ public class MemberService {
         m.setContributionPlanId(plan.getId());
         audit.record(AuditCategory.FINANCE, "PLAN_AFFECTE", "Member", m.getId(),
                 Map.of("ancien_plan", String.valueOf(previous), "nouveau_plan", plan.getCode()));
+        generateObligations(m);
+    }
+
+    /**
+     * Les échéances d'un membre qui devient actif, ou qui change de plan, apparaissent tout de suite dans son espace,
+     * sans attendre la génération nocturne (sans effet pour un membre en attente ou radié).
+     */
+    private void generateObligations(Member m) {
+        members.flush();
+        obligations.generateForMember(m.getId(), obligations.today());
     }
 
     @Transactional(readOnly = true)

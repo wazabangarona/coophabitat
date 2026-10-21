@@ -13,6 +13,7 @@ import sn.coophabitat.config.AppProperties;
 import sn.coophabitat.member.MemberRepository;
 import sn.coophabitat.member.RegistrationService;
 import sn.coophabitat.member.MemberStatus;
+import sn.coophabitat.notification.NotificationService;
 import sn.coophabitat.property.LotStatus;
 import sn.coophabitat.property.PropertyLotRepository;
 import sn.coophabitat.property.PropertyProjectRepository;
@@ -31,10 +32,13 @@ public class PublicController {
     private final PropertyProjectRepository projects;
     private final AppProperties props;
     private final RegistrationService registration;
+    private final NotificationService notifications;
 
     public PublicController(CoopSettingsRepository settings, MemberRepository members, PropertyLotRepository lots,
-                            PropertyProjectRepository projects, AppProperties props, RegistrationService registration) {
+                            PropertyProjectRepository projects, AppProperties props, RegistrationService registration,
+                            NotificationService notifications) {
         this.registration = registration;
+        this.notifications = notifications;
         this.settings = settings;
         this.members = members;
         this.lots = lots;
@@ -45,7 +49,7 @@ public class PublicController {
     public record PublicInfo(String name, String legalForm, String registrationNumber, String address, String city,
                              String phone, String email, String escrowStatement, boolean publicStatsAvailable,
                              String environment, boolean paymentSimulationEnabled, boolean demoData,
-                             boolean registrationOpen) {
+                             boolean registrationOpen, boolean passwordResetByEmail) {
     }
 
     public record PublicProject(String code, String name, String region, String departement, String commune,
@@ -63,7 +67,7 @@ public class PublicController {
                 s.getPhone(), s.getEmail(), s.isEscrowIntegrated() ? s.getEscrowStatement()
                 : "Fonds suivis comptablement — séquestre externe non vérifié ou non intégré",
                 s.isPublishPublicStats(), props.environment().name(), props.payment().mockEnabled() && !props.isProduction(),
-                s.isDemo(), registration.enabled());
+                s.isDemo(), registration.enabled(), notifications.emailAvailable());
     }
 
     @GetMapping("/projects")

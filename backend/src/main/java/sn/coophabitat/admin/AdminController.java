@@ -1,5 +1,6 @@
 package sn.coophabitat.admin;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -8,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import sn.coophabitat.admin.AdminDtos.*;
 import sn.coophabitat.common.PageResponse;
+import sn.coophabitat.security.AuthService;
 import sn.coophabitat.security.CurrentUserProvider;
 
 import java.util.List;
@@ -35,8 +37,10 @@ public class AdminController {
     @PostMapping("/users")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('USER_ADMIN')")
-    public UserResponse createUser(@Valid @RequestBody UserCreateRequest body) {
-        return service.toResponse(service.createUser(body, CurrentUserProvider.require()));
+    @Operation(summary = "Crée un compte ; sans serveur SMTP, le lien d'activation est renvoyé pour être transmis à la personne")
+    public CreatedUserResponse createUser(@Valid @RequestBody UserCreateRequest body) {
+        AdminService.CreatedUser created = service.createUser(body, CurrentUserProvider.require());
+        return new CreatedUserResponse(service.toResponse(created.user()), created.access());
     }
 
     @PutMapping("/users/{id}/roles")
@@ -52,10 +56,17 @@ public class AdminController {
     }
 
     @PostMapping("/users/{id}/invitation")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('USER_ADMIN')")
-    public void resendInvitation(@PathVariable Long id) {
-        service.resendInvitation(id);
+    @Operation(summary = "Renvoie l'invitation ; sans serveur SMTP, le lien est renvoyé pour être transmis à la personne")
+    public AuthService.AccessLink resendInvitation(@PathVariable Long id) {
+        return service.resendInvitation(id);
+    }
+
+    @PostMapping("/users/{id}/password-reset")
+    @PreAuthorize("hasAuthority('USER_ADMIN')")
+    @Operation(summary = "Réinitialisation pour une personne qui a perdu son mot de passe (courriel, ou lien à remettre sans SMTP)")
+    public AuthService.AccessLink passwordReset(@PathVariable Long id) {
+        return service.passwordResetLink(id, CurrentUserProvider.require());
     }
 
     @PostMapping("/users/{id}/unlock")

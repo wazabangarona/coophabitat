@@ -60,6 +60,12 @@ public class NotificationService {
         this.txNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
+    /** Vrai si un courriel peut réellement partir (serveur SMTP configuré). */
+    public boolean emailAvailable() {
+        ChannelSender sender = senders.get(NotificationChannel.EMAIL);
+        return sender != null && sender.configured();
+    }
+
     /** Canaux actifs d'un membre (tous activés par défaut, sauf retrait explicite). */
     public Map<NotificationChannel, Boolean> preferencesOf(Long memberId) {
         Map<NotificationChannel, Boolean> map = new EnumMap<>(NotificationChannel.class);

@@ -13,7 +13,7 @@ const LABELS: Record<string, string> = {
   DOWN: 'Vers le bas', CEILING: 'Plafond', FLOOR: 'Plancher', HALF_DOWN: 'Au plus proche (0,5 vers le bas)',
   // Paiements
   INITIE: 'Initié', CONFIRME: 'Confirmé', ECHOUE: 'Échoué', EXPIRE: 'Expiré', REMBOURSE: 'Remboursé',
-  EN_VERIFICATION: 'En vérification', MOCK: 'Simulateur', WAVE: 'Wave', SENDFLASH: 'SendFlash', MANUEL: 'Manuel',
+  EN_VERIFICATION: 'En vérification', MOCK: 'Simulateur', WAVE: 'Wave', SENDFLASH: 'SendFlash', MANUEL: 'Manuel', ORANGE_MONEY: 'Orange Money',
   // Lots
   EN_PREPARATION: 'En préparation', DISPONIBLE: 'Disponible', RESERVE: 'Réservé', ATTRIBUE: 'Attribué',
   LITIGIEUX: 'Litigieux', INDISPONIBLE: 'Indisponible', TERRAIN: 'Terrain', VILLA: 'Villa',
