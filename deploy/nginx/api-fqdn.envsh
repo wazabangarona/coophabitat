@@ -15,7 +15,7 @@ case "$host" in
     domains=$(awk '$1=="search" { for (i = 2; i <= NF; i++) print $i }' /etc/resolv.conf)
     # Attente et repli réservés à Render (variable RENDER définie par l'hébergeur) : sous Docker Compose, un
     # seul passage suffit et le nom court reste valable.
-    if [ -n "$RENDER" ]; then attempts=60; else attempts=1; fi
+    if [ -n "${RENDER:-}" ]; then attempts=60; else attempts=1; fi
     fqdn=""
     attempt=0
     while [ -z "$fqdn" ] && [ "$attempt" -lt "$attempts" ]; do
@@ -32,7 +32,7 @@ case "$host" in
       fi
     done
     first=$(echo "$domains" | head -n 1)
-    if [ -z "$fqdn" ] && [ -n "$RENDER" ] && [ -n "$first" ]; then
+    if [ -z "$fqdn" ] && [ -n "${RENDER:-}" ] && [ -n "$first" ]; then
       fqdn="$host.$first"
       echo "api-fqdn: $host toujours introuvable, adresse retenue par défaut : $fqdn:$port"
     fi
