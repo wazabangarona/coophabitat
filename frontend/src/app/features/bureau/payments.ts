@@ -27,7 +27,7 @@ const PROVIDERS = ['WAVE', 'SENDFLASH', 'MANUEL', 'MOCK'];
         <button type="button" class="link" (click)="status = 'EN_VERIFICATION'; go(0)">Afficher ceux à vérifier</button></p>
     }
     @if (auth.hasAny('PAYMENT_MANUAL_RECORD', 'SETTINGS_ADMIN')) {
-      <details class="card" [open]="!instructions">
+      <details class="card" [open]="instructionsMissing()">
         <summary>Consignes de paiement affichées aux membres</summary>
         <p class="small muted">Indiquez où payer la coopérative : numéro marchand Wave ou Orange Money, compte bancaire (RIB), heures de permanence pour les espèces.
           Les membres les voient au moment de payer, puis déclarent leur paiement avec sa référence.</p>
@@ -89,11 +89,16 @@ export class BureauPayments implements OnInit {
   protected provider = '';
   protected simulated = '';
   protected instructions = '';
+  /** Ouvert d'office tant que la trésorerie n'a pas indiqué où payer (fixé au chargement, pas pendant la saisie). */
+  protected readonly instructionsMissing = signal(false);
 
   ngOnInit(): void {
     this.go(0);
     if (this.auth.hasAny('PAYMENT_MANUAL_RECORD', 'SETTINGS_ADMIN')) {
-      this.api.get<PaymentInstructions>('/payments/instructions').subscribe((r) => (this.instructions = r.instructions ?? ''));
+      this.api.get<PaymentInstructions>('/payments/instructions').subscribe((r) => {
+        this.instructions = r.instructions ?? '';
+        this.instructionsMissing.set(!r.instructions);
+      });
     }
   }
 

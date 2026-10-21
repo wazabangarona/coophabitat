@@ -14,6 +14,7 @@ const LABELS: Record<string, string> = {
   // Paiements
   INITIE: 'Initié', CONFIRME: 'Confirmé', ECHOUE: 'Échoué', EXPIRE: 'Expiré', REMBOURSE: 'Remboursé',
   EN_VERIFICATION: 'En vérification', MOCK: 'Simulateur', WAVE: 'Wave', SENDFLASH: 'SendFlash', MANUEL: 'Manuel', ORANGE_MONEY: 'Orange Money',
+  ESPECES: 'Espèces', VIREMENT: 'Virement bancaire', CHEQUE: 'Chèque',
   // Lots
   EN_PREPARATION: 'En préparation', DISPONIBLE: 'Disponible', RESERVE: 'Réservé', ATTRIBUE: 'Attribué',
   LITIGIEUX: 'Litigieux', INDISPONIBLE: 'Indisponible', TERRAIN: 'Terrain', VILLA: 'Villa',
