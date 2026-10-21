@@ -128,7 +128,11 @@ Le schéma est géré par **Flyway** ; les migrations s'exécutent automatiqueme
 | `V2__integrite_et_referentiels.sql` | Triggers d'immuabilité (journaux en ajout seul, écritures non modifiables, transactions confirmées figées, reçus et documents figés), contrôle d'équilibre des écritures, rôles, permissions, plan de comptes, durées de conservation |
 | `V3__sequences.sql` | Séquences de numérotation (reçus, références) |
 | `V4__validation_adhesions.sql` | Statut `REFUSE` des demandes d'adhésion refusées |
+<<<<<<< Updated upstream
 | `V5__declarations_de_paiement.sql` | Consignes de paiement de la coopérative, compte de trésorerie Orange Money |
+=======
+| `V6__plans_par_administrateur.sql` | L'administrateur technique définit et affecte les plans de cotisation |
+>>>>>>> Stashed changes
 
 Hibernate est en mode `validate` : il ne modifie jamais le schéma. Une migration déjà appliquée ne doit jamais
 être modifiée ; toute évolution passe par un nouveau fichier `V4__…`.
@@ -257,7 +261,8 @@ Les échéances d'un membre apparaissent dès la validation de son adhésion ou 
 Mise en route d'une installation officielle : l'administrateur initial active son compte avec le lien affiché,
 renseigne le nom de la coopérative (Administration), puis attribue les rôles du bureau (Président, Trésorier,
 Secrétaire…) aux comptes concernés, après que ces personnes ont demandé leur adhésion. La carte « Mise en route du
-bureau » de l'onglet Comptes et rôles indique ce qui reste à faire. La trésorerie crée et active un plan de cotisation ;
+bureau » de l'onglet Comptes et rôles indique ce qui reste à faire. La trésorerie, ou l'administrateur, crée et active un plan de cotisation (l'administrateur peut aussi affecter
+les plans aux membres) ;
 tant qu'aucun autre responsable habilité n'a d'adhésion active, le premier président ou secrétaire désigné valide sa
 propre adhésion (cas signalé dans le journal d'audit), puis celles des autres. L'administrateur technique ne valide
 jamais lui-même d'adhésion. Sans serveur SMTP, la

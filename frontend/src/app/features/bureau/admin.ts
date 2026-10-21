@@ -28,7 +28,8 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
           <section class="card setup">
             <h2>Mise en route du bureau</h2>
             <p class="small muted">Les adhésions sont validées par la présidence ou le secrétariat, la trésorerie gère les plans de cotisation.
-              En tant qu’administrateur technique, vous désignez ces personnes ; vous ne validez pas vous-même les adhésions.</p>
+              En tant qu’administrateur technique, vous désignez ces personnes et pouvez définir et affecter les plans de
+              cotisation ; vous ne validez pas vous-même les adhésions.</p>
             <ol class="checklist">
               <li [class.done]="b.presidents?.length || b.secretaries?.length || b.treasurers?.length">
                 <strong>Les futurs responsables déposent leur demande d’adhésion</strong> avec le bouton « Adhérer » du site
@@ -42,7 +43,7 @@ type Tab = 'comptes' | 'parametres' | 'donnees';
                 </li>
               }
               <li [class.done]="(b.activePlans ?? 0) > 0"><strong>Plan de cotisation actif :</strong>{{ ' ' }}
-                {{ (b.activePlans ?? 0) > 0 ? b.activePlans + ' plan(s) actif(s)' : 'aucun — la trésorerie le crée dans Cotisations.' }}</li>
+                {{ (b.activePlans ?? 0) > 0 ? b.activePlans + ' plan(s) actif(s)' : 'aucun — vous (ou la trésorerie) le créez et l’activez dans Cotisations.' }}</li>
               <li [class.done]="b.approverInPlace"><strong>Validation des adhésions :</strong>{{ ' ' }}
                 @if (b.approverInPlace) { un responsable est en place ; {{ b.pendingApplications }} demande(s) en attente. }
                 @else { le premier président ou secrétaire désigné valide sa propre adhésion, puis celles des autres
