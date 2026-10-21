@@ -212,6 +212,9 @@ public class PaymentService {
         if (member.getStatus() == MemberStatus.EN_ATTENTE) {
             throw BusinessException.rule("ADHESION_NON_ACTIVE", "Le dossier d'adhésion n'est pas encore activé");
         }
+        if (member.getStatus() == MemberStatus.REFUSE) {
+            throw BusinessException.rule("ADHESION_REFUSEE", "La demande d'adhésion a été refusée : aucun paiement n'est enregistré");
+        }
         BigDecimal minimum = props.payment().minimumAmount();
         if (amount.compareTo(minimum) < 0) {
             throw BusinessException.rule("MONTANT_TROP_FAIBLE", "Le montant minimum est de " + Money.format(minimum));
