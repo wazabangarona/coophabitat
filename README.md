@@ -128,11 +128,8 @@ Le schéma est géré par **Flyway** ; les migrations s'exécutent automatiqueme
 | `V2__integrite_et_referentiels.sql` | Triggers d'immuabilité (journaux en ajout seul, écritures non modifiables, transactions confirmées figées, reçus et documents figés), contrôle d'équilibre des écritures, rôles, permissions, plan de comptes, durées de conservation |
 | `V3__sequences.sql` | Séquences de numérotation (reçus, références) |
 | `V4__validation_adhesions.sql` | Statut `REFUSE` des demandes d'adhésion refusées |
-<<<<<<< Updated upstream
 | `V5__declarations_de_paiement.sql` | Consignes de paiement de la coopérative, compte de trésorerie Orange Money |
-=======
 | `V6__plans_par_administrateur.sql` | L'administrateur technique définit et affecte les plans de cotisation |
->>>>>>> Stashed changes
 
 Hibernate est en mode `validate` : il ne modifie jamais le schéma. Une migration déjà appliquée ne doit jamais
 être modifiée ; toute évolution passe par un nouveau fichier `V4__…`.
